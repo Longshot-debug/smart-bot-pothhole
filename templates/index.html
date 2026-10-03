@@ -396,6 +396,33 @@
             color: var(--low);
         }
 
+        .source-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .source-badge.manual {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent);
+        }
+
+        .source-badge.sensor {
+            background: rgba(100, 116, 139, 0.15);
+            color: var(--text-muted);
+        }
+
+        .detection-desc {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            word-break: break-word;
+        }
+
         .detection-meta {
             display: flex;
             gap: 1.5rem;
@@ -601,6 +628,135 @@
         .custom-marker:hover .marker-label {
             opacity: 1;
         }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+            padding: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-hover);
+            width: 100%;
+            max-width: 480px;
+            padding: 1.5rem;
+            transform: translateY(10px);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.25rem;
+            line-height: 1;
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            background: var(--navy-light);
+            color: var(--text);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.375rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text);
+            background: var(--bg);
+            transition: var(--transition);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-error {
+            color: var(--high);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+
+        .form-error.show {
+            display: block;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
     </style>
 </head>
 <body>
@@ -620,6 +776,12 @@
             </div>
         </div>
         <div class="header-right">
+            <button class="btn btn-primary" id="reportBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                Report a Pothole
+            </button>
             <button class="btn btn-primary" id="exportBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -713,6 +875,64 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Report a Pothole Modal -->
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Report a Pothole</h3>
+                <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+            </div>
+            <form id="reportForm" novalidate>
+                <div class="form-group">
+                    <label for="areaInput">Location / Area *</label>
+                    <input type="text" id="areaInput" maxlength="100" placeholder="e.g. Civil Lines" required>
+                    <div class="form-error" id="areaError">Area is required.</div>
+                </div>
+                <div class="form-group">
+                    <label for="severityInput">Severity *</label>
+                    <select id="severityInput" required>
+                        <option value="">Select severity</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                    <div class="form-error" id="severityError">Severity is required.</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="latInput">Latitude *</label>
+                        <input type="number" id="latInput" step="any" placeholder="30.900965" required>
+                        <div class="form-error" id="latError">Latitude must be between -90 and 90.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="lngInput">Longitude *</label>
+                        <input type="number" id="lngInput" step="any" placeholder="75.857277" required>
+                        <div class="form-error" id="lngError">Longitude must be between -180 and 180.</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" id="geoBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 21s-7-5.1-7-11a7 7 0 1114 0c0 5.9-7 11-7 11z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Use my current location
+                    </button>
+                    <div class="form-error" id="geoError">Could not get location.</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to fill these.</div>
+                </div>
+                <div class="form-group">
+                    <label for="descInput">Description (optional)</label>
+                    <textarea id="descInput" rows="3" maxlength="300" placeholder="Brief description..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         // State
@@ -748,6 +968,12 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19
             }).addTo(map);
+
+            // Click on map to fill lat/lng and open the report modal
+            map.on('click', function (e) {
+                setLatLng(e.latlng.lat, e.latlng.lng);
+                openModal();
+            });
         }
 
         // Create custom marker
@@ -780,9 +1006,11 @@
                 marker.bindPopup(`
                     <div style="min-width: 180px;">
                         <strong>${escapeHtml(detection.area)}</strong><br>
-                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[detection.severity]}20; color: ${severityColors[detection.severity]}; text-transform: uppercase;">${detection.severity}</span><br><br>
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[detection.severity]}20; color: ${severityColors[detection.severity]}; text-transform: uppercase;">${detection.severity}</span>
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${detection.source === 'manual' ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)'}; color: ${detection.source === 'manual' ? '#06b6d4' : '#64748b'}; text-transform: uppercase;">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span><br><br>
                         <span style="color: var(--text-muted); font-size: 0.8125rem;">📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span><br>
                         <span style="color: var(--text-muted); font-size: 0.8125rem;">🕐 ${detection.time}</span>
+                        ${detection.description ? `<br><span style="color: var(--text-muted); font-size: 0.8125rem;">${escapeHtml(detection.description)}</span>` : ''}
                     </div>
                 `);
 
@@ -810,15 +1038,19 @@
             detectionCount.textContent = `${detections.length} report${detections.length !== 1 ? 's' : ''}`;
 
             detectionsList.innerHTML = detections.map(detection => `
-                <div class="detection-card" data-id="${detection.time}-${detection.area}">
+                <div class="detection-card" data-id="${escapeHtml(detection.time)}-${escapeHtml(detection.area)}">
                     <div class="detection-header">
                         <span class="detection-area">${escapeHtml(detection.area)}</span>
-                        <span class="severity-badge ${detection.severity}">${detection.severity}</span>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="severity-badge ${detection.severity}">${detection.severity}</span>
+                            <span class="source-badge ${detection.source === 'manual' ? 'manual' : 'sensor'}">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span>
+                        </div>
                     </div>
                     <div class="detection-meta">
                         <span>📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span>
                         <span>🕐 ${detection.time}</span>
                     </div>
+                    ${detection.description ? `<div class="detection-desc">${escapeHtml(detection.description)}</div>` : ''}
                 </div>
             `).join('');
         }
@@ -896,13 +1128,15 @@
                 return;
             }
 
-            const headers = ['Time', 'Location Area', 'Severity', 'Latitude', 'Longitude'];
+            const headers = ['Time', 'Location Area', 'Severity', 'Latitude', 'Longitude', 'Source', 'Description'];
             const rows = detections.map(d => [
                 d.time,
                 `"${d.area.replace(/"/g, '""')}"`,
                 d.severity.charAt(0).toUpperCase() + d.severity.slice(1),
                 d.latitude,
-                d.longitude
+                d.longitude,
+                d.source === 'manual' ? 'Manual' : 'Sensor',
+                `"${(d.description || '').replace(/"/g, '""')}"`
             ]);
 
             const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -930,6 +1164,153 @@
         // Event Listeners
         exportBtn.addEventListener('click', exportCSV);
         themeToggle.addEventListener('click', toggleTheme);
+
+        // Report Modal
+        const reportBtn = document.getElementById('reportBtn');
+        const reportModal = document.getElementById('reportModal');
+        const modalClose = document.getElementById('modalClose');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const reportForm = document.getElementById('reportForm');
+
+        const areaInput = document.getElementById('areaInput');
+        const severityInput = document.getElementById('severityInput');
+        const latInput = document.getElementById('latInput');
+        const lngInput = document.getElementById('lngInput');
+        const descInput = document.getElementById('descInput');
+
+        const areaError = document.getElementById('areaError');
+        const severityError = document.getElementById('severityError');
+        const latError = document.getElementById('latError');
+        const lngError = document.getElementById('lngError');
+        const geoError = document.getElementById('geoError');
+        const geoBtn = document.getElementById('geoBtn');
+
+        let tempMarker = null;
+
+        function setLatLng(lat, lng) {
+            latInput.value = lat.toFixed(6);
+            lngInput.value = lng.toFixed(6);
+            latError.classList.remove('show');
+            lngError.classList.remove('show');
+            if (tempMarker) map.removeLayer(tempMarker);
+            tempMarker = L.marker([lat, lng]).addTo(map);
+        }
+
+        // Use browser geolocation
+        geoBtn.addEventListener('click', function () {
+            geoError.classList.remove('show');
+            if (!navigator.geolocation) {
+                geoError.textContent = 'Geolocation not supported by this browser.';
+                geoError.classList.add('show');
+                return;
+            }
+            geoBtn.disabled = true;
+            navigator.geolocation.getCurrentPosition(
+                function (pos) {
+                    setLatLng(pos.coords.latitude, pos.coords.longitude);
+                    map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+                    geoBtn.disabled = false;
+                },
+                function (err) {
+                    geoError.textContent = err.code === err.PERMISSION_DENIED
+                        ? 'Location permission denied.'
+                        : 'Could not get location.';
+                    geoError.classList.add('show');
+                    geoBtn.disabled = false;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+
+        function openModal() {
+            reportModal.classList.add('open');
+        }
+
+        function closeModal() {
+            reportModal.classList.remove('open');
+            reportForm.reset();
+            [areaError, severityError, latError, lngError].forEach(e => e.classList.remove('show'));
+        }
+
+        reportBtn.addEventListener('click', openModal);
+        modalClose.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        reportModal.addEventListener('click', (e) => {
+            if (e.target === reportModal) closeModal();
+        });
+
+        function showError(el) { el.classList.add('show'); }
+
+        reportForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validate
+            let valid = true;
+            [areaError, severityError, latError, lngError].forEach(el => el.classList.remove('show'));
+
+            if (!areaInput.value.trim()) { showError(areaError); valid = false; }
+            if (!severityInput.value) { showError(severityError); valid = false; }
+
+            const lat = parseFloat(latInput.value);
+            const lng = parseFloat(lngInput.value);
+            if (isNaN(lat) || lat < -90 || lat > 90) { showError(latError); valid = false; }
+            if (isNaN(lng) || lng < -180 || lng > 180) { showError(lngError); valid = false; }
+
+            if (!valid) return;
+
+            const payload = {
+                area: areaInput.value.trim(),
+                severity: severityInput.value,
+                latitude: lat,
+                longitude: lng,
+                description: descInput.value.trim(),
+                source: 'manual'
+            };
+
+            try {
+                const response = await fetch('/report_pothole', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    closeModal();
+                    showToast(result.report);
+                    await fetchDetections();
+                    if (map && result.report) {
+                        map.setView([result.report.latitude, result.report.longitude], 15);
+                    }
+                } else {
+                    showToastError(result.error || 'Failed to submit report');
+                }
+            } catch (error) {
+                showToastError('Network error. Please try again.');
+            }
+        });
+
+        function showToastError(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast high';
+            toast.innerHTML = `
+                <div class="toast-icon" style="background: rgba(239,68,68,0.15); color: var(--high);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">Error</div>
+                    <div class="toast-message">${escapeHtml(message)}</div>
+                </div>
+            `;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'toastIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
 
         // Initialize
         initTheme();
