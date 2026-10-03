@@ -883,6 +883,27 @@
                 <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
             </div>
             <form id="reportForm" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="countryInput">Country *</label>
+                        <select id="countryInput" required>
+                            <option value="">Select country</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="stateInput">State *</label>
+                        <select id="stateInput" required>
+                            <option value="">Select state</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cityInput">City *</label>
+                        <select id="cityInput" required>
+                            <option value="">Select city</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-error" id="locationError">Please select country, state and city.</div>
                 <div class="form-group">
                     <label for="areaInput">Location / Area *</label>
                     <input type="text" id="areaInput" maxlength="100" placeholder="e.g. Civil Lines" required>
@@ -914,8 +935,9 @@
                     <div class="form-error" id="lngError">Please set the location (click the map or use current location).</div>
                 </div>
                 <div class="form-group">
-                    <label for="photoInput">Photo (optional)</label>
-                    <input type="file" id="photoInput" accept="image/*" capture="environment">
+                    <label for="photoInput">Photo *</label>
+                    <input type="file" id="photoInput" accept="image/*" capture="environment" required>
+                    <div class="form-error" id="photoError">Please attach a photo of the pothole.</div>
                 </div>
                 <div class="form-group">
                     <label for="descInput">Description (optional)</label>
@@ -1181,6 +1203,12 @@
         const latInput = document.getElementById('latInput');
         const lngInput = document.getElementById('lngInput');
         const descInput = document.getElementById('descInput');
+        const photoInput = document.getElementById('photoInput');
+        const countryInput = document.getElementById('countryInput');
+        const stateInput = document.getElementById('stateInput');
+        const cityInput = document.getElementById('cityInput');
+        const locationError = document.getElementById('locationError');
+        const photoError = document.getElementById('photoError');
 
         const areaError = document.getElementById('areaError');
         const severityError = document.getElementById('severityError');
@@ -1199,6 +1227,45 @@
             if (tempMarker) map.removeLayer(tempMarker);
             tempMarker = L.marker([lat, lng]).addTo(map);
         }
+
+        // Location data for country/state/city dropdowns
+        const LOCATIONS = {
+            India: {
+                Punjab: { Ludhiana: [30.900965, 75.857277], Amritsar: [31.6340, 74.8723], Jalandhar: [31.3260, 75.5762] },
+                Maharashtra: { Mumbai: [19.0760, 72.8777], Pune: [18.5204, 73.8567], Nagpur: [21.1458, 79.0882] },
+                Delhi: { "New Delhi": [28.6139, 77.2090] }
+            },
+            USA: {
+                California: { "Los Angeles": [34.0522, -118.2437], "San Francisco": [37.7749, -122.4194] },
+                "New York": { "New York City": [40.7128, -74.0060] }
+            }
+        };
+
+        function populateSelect(select, options, placeholder) {
+            select.innerHTML = `<option value="">${placeholder}</option>` +
+                options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+        }
+
+        populateSelect(countryInput, Object.keys(LOCATIONS), 'Select country');
+
+        countryInput.addEventListener('change', function () {
+            const states = this.value ? Object.keys(LOCATIONS[this.value]) : [];
+            populateSelect(stateInput, states, 'Select state');
+            populateSelect(cityInput, [], 'Select city');
+        });
+
+        stateInput.addEventListener('change', function () {
+            const cities = countryInput.value && this.value ? Object.keys(LOCATIONS[countryInput.value][this.value]) : [];
+            populateSelect(cityInput, cities, 'Select city');
+        });
+
+        cityInput.addEventListener('change', function () {
+            if (!countryInput.value || !stateInput.value || !this.value) return;
+            const coords = LOCATIONS[countryInput.value][stateInput.value][this.value];
+            setLatLng(coords[0], coords[1]);
+            map.setView(coords, 13);
+            areaInput.value = this.value;
+        });
 
         // Use browser geolocation
         geoBtn.addEventListener('click', function () {
@@ -1233,7 +1300,7 @@
         function closeModal() {
             reportModal.classList.remove('open');
             reportForm.reset();
-            [areaError, severityError, latError, lngError].forEach(e => e.classList.remove('show'));
+            [areaError, severityError, latError, lngError, locationError, photoError].forEach(e => e.classList.remove('show'));
         }
 
         reportBtn.addEventListener('click', openModal);
@@ -1250,10 +1317,12 @@
 
             // Validate
             let valid = true;
-            [areaError, severityError, latError, lngError].forEach(el => el.classList.remove('show'));
+            [areaError, severityError, latError, lngError, locationError, photoError].forEach(el => el.classList.remove('show'));
 
+            if (!countryInput.value || !stateInput.value || !cityInput.value) { showError(locationError); valid = false; }
             if (!areaInput.value.trim()) { showError(areaError); valid = false; }
             if (!severityInput.value) { showError(severityError); valid = false; }
+            if (!photoInput.files || photoInput.files.length === 0) { showError(photoError); valid = false; }
 
             const lat = parseFloat(latInput.value);
             const lng = parseFloat(lngInput.value);
