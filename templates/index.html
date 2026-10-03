@@ -898,18 +898,8 @@
                     </select>
                     <div class="form-error" id="severityError">Severity is required.</div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="latInput">Latitude *</label>
-                        <input type="number" id="latInput" step="any" placeholder="30.900965" required>
-                        <div class="form-error" id="latError">Latitude must be between -90 and 90.</div>
-                    </div>
-                    <div class="form-group">
-                        <label for="lngInput">Longitude *</label>
-                        <input type="number" id="lngInput" step="any" placeholder="75.857277" required>
-                        <div class="form-error" id="lngError">Longitude must be between -180 and 180.</div>
-                    </div>
-                </div>
+                <input type="hidden" id="latInput">
+                <input type="hidden" id="lngInput">
                 <div class="form-group">
                     <button type="button" class="btn btn-secondary" id="geoBtn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -919,7 +909,13 @@
                         Use my current location
                     </button>
                     <div class="form-error" id="geoError">Could not get location.</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to fill these.</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to set the location.</div>
+                    <div class="form-error" id="latError">Please set the location (click the map or use current location).</div>
+                    <div class="form-error" id="lngError">Please set the location (click the map or use current location).</div>
+                </div>
+                <div class="form-group">
+                    <label for="photoInput">Photo (optional)</label>
+                    <input type="file" id="photoInput" accept="image/*" capture="environment">
                 </div>
                 <div class="form-group">
                     <label for="descInput">Description (optional)</label>
