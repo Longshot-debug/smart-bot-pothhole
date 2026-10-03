@@ -2,8 +2,9 @@ import cv2
 import requests
 import time
 import random
+import os
 
-API_URL = "http://localhost:5000/report_pothole"
+API_URL = os.environ.get('API_URL', 'http://localhost:5000/report_pothole')
 
 # Sample areas around Ludhiana for simulated detection
 LUDHIANA_AREAS = [
@@ -47,7 +48,7 @@ def post_detection(detection):
             print(f"✗ Failed: {response.status_code} - {response.text}")
             return False
     except requests.exceptions.ConnectionError:
-        print("✗ Connection failed - Is the Flask server running on port 5000?")
+        print(f"✗ Connection failed - Is the server running at {API_URL}?")
         return False
     except Exception as e:
         print(f"✗ Error: {e}")

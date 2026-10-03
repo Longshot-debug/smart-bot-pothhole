@@ -1,0 +1,23 @@
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "outputDirectory": ".",
+  "devCommand": "python app.py",
+  "installCommand": "pip install -r requirements.txt",
+  "framework": "flask",
+  "functions": {
+    "app.py": {
+      "runtime": "@vercel/python@4.2.0",
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ],
+  "env": {
+    "UPSTASH_REDIS_REST_URL": "@upstash_redis_rest_url",
+    "UPSTASH_REDIS_REST_TOKEN": "@upstash_redis_rest_token"
+  }
+}

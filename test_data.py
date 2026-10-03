@@ -1,5 +1,6 @@
 import requests
 import time
+import os
 
 # Test pothole data around Ludhiana
 TEST_POTHOLES = [
@@ -35,7 +36,7 @@ TEST_POTHOLES = [
     }
 ]
 
-API_URL = "http://localhost:5000/report_pothole"
+API_URL = os.environ.get('API_URL', 'http://localhost:5000/report_pothole')
 
 def post_potholes():
     print(f"Posting {len(TEST_POTHOLES)} test potholes to {API_URL}...\n")
@@ -49,14 +50,14 @@ def post_potholes():
             else:
                 print(f"✗ [{i}/{len(TEST_POTHOLES)}] Failed: {response.status_code} - {response.text}")
         except requests.exceptions.ConnectionError:
-            print(f"✗ [{i}/{len(TEST_POTHOLES)}] Connection failed - Is the Flask server running on port 5000?")
+            print(f"✗ [{i}/{len(TEST_POTHOLES)}] Connection failed - Is the server running at {API_URL}?")
             break
         except Exception as e:
             print(f"✗ [{i}/{len(TEST_POTHOLES)}] Error: {e}")
         
         time.sleep(0.5)  # Small delay between posts
     
-    print("\nDone! Check the dashboard at http://localhost:5000")
+    print(f"\nDone! Check the dashboard at {API_URL.replace('/report_pothole', '')}")
 
 if __name__ == "__main__":
     post_potholes()
