@@ -35,14 +35,35 @@ def redis_request(method, endpoint, json_data=None):
 
 def redis_lpush(report):
     """Push report to Redis list (newest first)."""
-    redis_request("POST", f"/lpush/{REDIS_KEY}", [json.dumps(report)])
+    # Store a single JSON string, not a nested list value
+    redis_request("POST", f"/lpush/{REDIS_KEY}", json.dumps(report))
     # Trim to max 5 items
     redis_request("POST", f"/ltrim/{REDIS_KEY}", [0, MAX_HISTORY - 1])
+
+def _normalize_report(item):
+    """Unwrap lists and parse JSON strings until we get a dict."""
+    while True:
+        if isinstance(item, list):
+            if not item:
+                return None
+            item = item[0]
+        elif isinstance(item, str):
+            try:
+                item = json.loads(item)
+            except (ValueError, TypeError):
+                return None
+        else:
+            return item if isinstance(item, dict) else None
 
 def redis_lrange():
     """Get all reports from Redis list (newest first)."""
     result = redis_request("GET", f"/lrange/{REDIS_KEY}/0/{MAX_HISTORY - 1}")
-    return [json.loads(item) for item in result.get("result", [])]
+    reports = []
+    for item in result.get("result", []):
+        report = _normalize_report(item)
+        if report is not None:
+            reports.append(report)
+    return reports
 
 def sanitize_text(text, max_length):
     """Sanitize text input: trim and limit length."""

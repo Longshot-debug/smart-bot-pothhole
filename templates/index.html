@@ -956,6 +956,13 @@
             low: '#22c55e'
         };
 
+        // Case-insensitive severity normalizer
+        function normSeverity(s) {
+            const v = (s || '').toString().toLowerCase();
+            if (v === 'high' || v === 'medium' || v === 'low') return v;
+            return 'low';
+        }
+
         // Initialize Map
         function initMap() {
             map = L.map('map').setView([30.900965, 75.857277], 12);
@@ -974,10 +981,11 @@
 
         // Create custom marker
         function createMarkerIcon(severity) {
-            const color = severityColors[severity] || severityColors.low;
+            const s = normSeverity(severity);
+            const color = severityColors[s] || severityColors.low;
             return L.divIcon({
                 className: 'custom-marker',
-                html: `<div class="marker-icon ${severity}" style="background: ${color};"></div>`,
+                html: `<div class="marker-icon ${s}" style="background: ${color};"></div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12],
                 popupAnchor: [0, -12]
@@ -1002,7 +1010,7 @@
                 marker.bindPopup(`
                     <div style="min-width: 180px;">
                         <strong>${escapeHtml(detection.area)}</strong><br>
-                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[detection.severity]}20; color: ${severityColors[detection.severity]}; text-transform: uppercase;">${detection.severity}</span>
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[normSeverity(detection.severity)]}20; color: ${severityColors[normSeverity(detection.severity)]}; text-transform: uppercase;">${detection.severity}</span>
                         <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${detection.source === 'manual' ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)'}; color: ${detection.source === 'manual' ? '#06b6d4' : '#64748b'}; text-transform: uppercase;">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span><br><br>
                         <span style="color: var(--text-muted); font-size: 0.8125rem;">📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span><br>
                         <span style="color: var(--text-muted); font-size: 0.8125rem;">🕐 ${detection.time}</span>
@@ -1038,7 +1046,7 @@
                     <div class="detection-header">
                         <span class="detection-area">${escapeHtml(detection.area)}</span>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <span class="severity-badge ${detection.severity}">${detection.severity}</span>
+                            <span class="severity-badge ${normSeverity(detection.severity)}">${detection.severity}</span>
                             <span class="source-badge ${detection.source === 'manual' ? 'manual' : 'sensor'}">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span>
                         </div>
                     </div>
@@ -1054,7 +1062,7 @@
         // Update stats
         function updateStats() {
             const total = detections.length;
-            const high = detections.filter(d => d.severity === 'high').length;
+            const high = detections.filter(d => normSeverity(d.severity) === 'high').length;
             const last = detections.length > 0 ? detections[0].time : '—';
 
             totalDetectionsEl.textContent = total;
@@ -1065,9 +1073,9 @@
         // Show toast notification
         function showToast(detection) {
             const toast = document.createElement('div');
-            toast.className = `toast ${detection.severity}`;
+            toast.className = `toast ${normSeverity(detection.severity)}`;
             toast.innerHTML = `
-                <div class="toast-icon" style="background: ${severityColors[detection.severity]}20; color: ${severityColors[detection.severity]};">
+                <div class="toast-icon" style="background: ${severityColors[normSeverity(detection.severity)]}20; color: ${severityColors[normSeverity(detection.severity)]};">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                     </svg>
