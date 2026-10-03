@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from flask_cors import CORS
 from collections import deque
 from datetime import datetime
@@ -6,6 +6,7 @@ import threading
 import os
 import json
 import requests
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -121,6 +122,15 @@ def validate_report(data):
         'source': source
     }
     
+    # Photo handling: required for manual, optional for sensor
+    photo = data.get('photo')
+    if source == 'manual':
+        if not photo or not isinstance(photo, str) or not photo.startswith('data:image/'):
+            return False, 'A valid photo data URL is required for manual reports', None
+        sanitized['photo'] = photo
+    elif photo and isinstance(photo, str) and photo.startswith('data:image/'):
+        sanitized['photo'] = photo
+    
     return True, None, sanitized
 
 @app.route('/')
@@ -129,9 +139,9 @@ def index():
 
 @app.route('/report_pothole', methods=['POST'])
 def report_pothole():
-    # Abuse protection: reject requests larger than 2KB
-    if request.content_length and request.content_length > 2048:
-        return jsonify({'error': 'Request too large (max 2KB)'}), 413
+    # Abuse protection: reject requests larger than 300KB
+    if request.content_length and request.content_length > 300 * 1024:
+        return jsonify({'error': 'Request too large (max 300KB)'}), 413
     
     data = request.get_json()
     
@@ -139,9 +149,10 @@ def report_pothole():
     if not is_valid:
         return jsonify({'error': error}), 400
     
-    # Add timestamp
+    # Add timestamp and unique id
     current_time = datetime.now().strftime('%H:%M:%S')
     report = {
+        'id': uuid.uuid4().hex,
         'time': current_time,
         'area': sanitized['area'],
         'severity': sanitized['severity'],
@@ -150,6 +161,8 @@ def report_pothole():
         'description': sanitized['description'],
         'source': sanitized['source']
     }
+    if 'photo' in sanitized:
+        report['photo'] = sanitized['photo']
     
     if USE_REDIS:
         try:
@@ -177,7 +190,39 @@ def get_pothole_history():
         with history_lock:
             history_list = list(pothole_history)
     
-    return jsonify(history_list)
+    # Strip photo from the list response; include has_photo flag
+    safe_list = []
+    for r in history_list:
+        r = dict(r)
+        r['has_photo'] = bool(r.get('photo'))
+        r.pop('photo', None)
+        safe_list.append(r)
+    
+    return jsonify(safe_list)
+
+@app.route('/photo/<report_id>')
+def get_photo(report_id):
+    report = None
+    if USE_REDIS:
+        try:
+            history_list = redis_lrange()
+            report = next((r for r in history_list if r.get('id') == report_id), None)
+        except Exception as e:
+            app.logger.error(f"Redis error, falling back to memory: {e}")
+    if report is None:
+        with history_lock:
+            report = next((r for r in pothole_history if r.get('id') == report_id), None)
+    if report is None or not report.get('photo'):
+        return jsonify({'error': 'Photo not found'}), 404
+    photo = report['photo']
+    try:
+        header, b64 = photo.split(',', 1)
+        mime = header.split(':')[1].split(';')[0] if ':' in header else 'image/jpeg'
+        import base64
+        return Response(base64.b64decode(b64), mimetype=mime)
+    except Exception:
+        # Fallback: return the raw data URL
+        return Response(photo, mimetype='text/plain')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
