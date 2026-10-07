@@ -198,7 +198,9 @@ def get_pothole_history():
         r.pop('photo', None)
         safe_list.append(r)
     
-    return jsonify(safe_list)
+    response = jsonify(safe_list)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @app.route('/photo/<report_id>')
 def get_photo(report_id):

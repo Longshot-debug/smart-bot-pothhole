@@ -1266,7 +1266,8 @@
             tempMarker = L.marker([lat, lng]).addTo(map);
         }
 
-        // Location data for country/state/city dropdowns
+        // Full world location data (countries/states/cities) loaded at runtime.
+        // Cities lack coordinates, so on city select we geocode via Nominatim.
         const LOCATIONS = {
             India: {
                 Punjab: { Ludhiana: [30.900965, 75.857277], Amritsar: [31.6340, 74.8723], Jalandhar: [31.3260, 75.5762] },
@@ -1284,25 +1285,81 @@
                 options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
         }
 
-        populateSelect(countryInput, Object.keys(LOCATIONS), 'Select country');
+        // Attempt to load full world dataset; fall back to LOCATIONS on failure.
+        let WORLD = null;
+        async function loadWorldData() {
+            try {
+                const [countriesRes, statesRes, citiesRes] = await Promise.all([
+                    fetch('https://countriesnow.space/api/v0.1/countries/'),
+                    fetch('https://countriesnow.space/api/v0.1/countries/states'),
+                    fetch('https://countriesnow.space/api/v0.1/countries/cities')
+                ]);
+                const c = await countriesRes.json();
+                const s = await statesRes.json();
+                const ci = await citiesRes.json();
+
+                const countryNames = (c.data || []).map(x => x.country);
+                const statesMap = {};
+                (s.data || []).forEach(st => { statesMap[st.name] = st.states; });
+                const citiesMap = {};
+                (ci.data || []).forEach(item => { citiesMap[item.country] = item.cities; });
+
+                WORLD = { countryNames, statesMap, citiesMap };
+                populateSelect(countryInput, countryNames, 'Select country');
+            } catch (e) {
+                console.error('Falling back to built-in locations:', e);
+                WORLD = null;
+                populateSelect(countryInput, Object.keys(LOCATIONS), 'Select country');
+            }
+        }
+        loadWorldData();
 
         countryInput.addEventListener('change', function () {
-            const states = this.value ? Object.keys(LOCATIONS[this.value]) : [];
-            populateSelect(stateInput, states, 'Select state');
-            populateSelect(cityInput, [], 'Select city');
+            if (WORLD) {
+                const states = (WORLD.statesMap[this.value] || []).map(x => x.name);
+                populateSelect(stateInput, states, 'Select state');
+                populateSelect(cityInput, [], 'Select city');
+            } else {
+                const states = this.value ? Object.keys(LOCATIONS[this.value]) : [];
+                populateSelect(stateInput, states, 'Select state');
+                populateSelect(cityInput, [], 'Select city');
+            }
         });
 
         stateInput.addEventListener('change', function () {
-            const cities = countryInput.value && this.value ? Object.keys(LOCATIONS[countryInput.value][this.value]) : [];
-            populateSelect(cityInput, cities, 'Select city');
+            if (WORLD) {
+                const stateObj = (WORLD.statesMap[countryInput.value] || []).find(x => x.name === this.value);
+                const cities = stateObj && stateObj.cities ? stateObj.cities.map(c => c.name) : (WORLD.citiesMap[countryInput.value] || []);
+                populateSelect(cityInput, cities, 'Select city');
+            } else {
+                const cities = countryInput.value && this.value ? Object.keys(LOCATIONS[countryInput.value][this.value]) : [];
+                populateSelect(cityInput, cities, 'Select city');
+            }
         });
 
-        cityInput.addEventListener('change', function () {
+        cityInput.addEventListener('change', async function () {
             if (!countryInput.value || !stateInput.value || !this.value) return;
-            const coords = LOCATIONS[countryInput.value][stateInput.value][this.value];
-            setLatLng(coords[0], coords[1]);
-            map.setView(coords, 13);
+            if (!WORLD) {
+                const coords = LOCATIONS[countryInput.value][stateInput.value][this.value];
+                setLatLng(coords[0], coords[1]);
+                map.setView(coords, 13);
+                areaInput.value = this.value;
+                return;
+            }
             areaInput.value = this.value;
+            try {
+                const q = encodeURIComponent(`${this.value}, ${stateInput.value}, ${countryInput.value}`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, { headers: { 'Accept-Language': 'en' } });
+                const data = await res.json();
+                if (data && data[0]) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    setLatLng(lat, lon);
+                    map.setView([lat, lon], 13);
+                }
+            } catch (e) {
+                console.error('Geocode failed:', e);
+            }
         });
 
         // Use browser geolocation
