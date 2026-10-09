@@ -1373,17 +1373,9 @@
                 <input type="hidden" id="latInput">
                 <input type="hidden" id="lngInput">
                 <div class="form-group">
-                    <button type="button" class="btn btn-secondary" id="geoBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 21s-7-5.1-7-11a7 7 0 1114 0c0 5.9-7 11-7 11z"></path>
-                            <circle cx="12" cy="10" r="3"></circle>
-                        </svg>
-                        Use my current location
-                    </button>
-                    <div class="form-error" id="geoError">Could not get location.</div>
                     <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to set the location.</div>
-                    <div class="form-error" id="latError">Please set the location (click the map or use current location).</div>
-                    <div class="form-error" id="lngError">Please set the location (click the map or use current location).</div>
+                    <div class="form-error" id="latError">Please set the location (click on the map).</div>
+                    <div class="form-error" id="lngError">Please set the location (click on the map).</div>
                 </div>
                 <div class="form-group">
                     <label for="photoInput">Photo *</label>
@@ -1842,8 +1834,6 @@
         const severityError = document.getElementById('severityError');
         const latError = document.getElementById('latError');
         const lngError = document.getElementById('lngError');
-        const geoError = document.getElementById('geoError');
-        const geoBtn = document.getElementById('geoBtn');
 
         let tempMarker = null;
         let compressedPhotoDataUrl = null;
@@ -2325,32 +2315,6 @@
             }
         }
 
-
-        // Use browser geolocation
-        geoBtn.addEventListener('click', function () {
-            geoError.classList.remove('show');
-            if (!navigator.geolocation) {
-                geoError.textContent = 'Geolocation not supported by this browser.';
-                geoError.classList.add('show');
-                return;
-            }
-            geoBtn.disabled = true;
-            navigator.geolocation.getCurrentPosition(
-                function (pos) {
-                    setLatLng(pos.coords.latitude, pos.coords.longitude);
-                    map.setView([pos.coords.latitude, pos.coords.longitude], 15);
-                    geoBtn.disabled = false;
-                },
-                function (err) {
-                    geoError.textContent = err.code === err.PERMISSION_DENIED
-                        ? 'Location permission denied.'
-                        : 'Could not get location.';
-                    geoError.classList.add('show');
-                    geoBtn.disabled = false;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        });
 
         function openModal(fromMapClick) {
             reportModal.classList.add('open');
