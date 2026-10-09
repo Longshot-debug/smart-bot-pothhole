@@ -314,6 +314,164 @@
             color: var(--muted);
         }
 
+        /* Settings rows */
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .settings-row-text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .settings-row-label {
+            font-size: 0.9375rem;
+            font-weight: 600;
+        }
+
+        .settings-row-desc {
+            font-size: 0.8125rem;
+            color: var(--muted);
+        }
+
+        /* Toggle switch */
+        .switch {
+            position: relative;
+            display: inline-flex;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .switch input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .switch-track {
+            display: block;
+            width: 44px;
+            height: 24px;
+            padding: 3px;
+            border-radius: 9999px;
+            background: var(--border);
+            transition: background 0.2s ease;
+        }
+
+        .switch-thumb {
+            display: block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+
+        .switch input:checked + .switch-track {
+            background: var(--accent-teal);
+        }
+
+        .switch input:checked + .switch-track .switch-thumb {
+            transform: translateX(20px);
+        }
+
+        .switch input:focus-visible + .switch-track {
+            outline: 2px solid var(--accent-teal);
+            outline-offset: 2px;
+        }
+
+        /* Phone number field */
+        .phone-field {
+            margin-top: 1.25rem;
+        }
+
+        .phone-field label {
+            display: block;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .phone-input-row {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .country-code {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            border-right: none;
+            border-radius: 8px 0 0 8px;
+            background: var(--background);
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .phone-input-row input {
+            flex: 1;
+            min-width: 0;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0 8px 8px 0;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text);
+            background: var(--card);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .phone-input-row input::placeholder {
+            color: var(--muted);
+            opacity: 0.75;
+        }
+
+        .phone-input-row input:focus {
+            outline: none;
+            border-color: var(--accent-teal);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.18);
+        }
+
+        .phone-input-row.has-error input,
+        .phone-input-row.has-error .country-code {
+            border-color: var(--danger);
+        }
+
+        .field-error {
+            display: none;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--danger);
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
         /* Stat Cards */
         .stats-grid {
             display: grid;
@@ -676,6 +834,16 @@
             color: var(--success);
         }
 
+        .toast.success .toast-icon {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
         .toast-content {
             flex: 1;
         }
@@ -923,6 +1091,18 @@
             display: block;
         }
 
+        .field-hint {
+            display: none;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--warning);
+        }
+
+        .field-hint.show {
+            display: block;
+        }
+
         .modal-actions {
             display: flex;
             justify-content: flex-end;
@@ -1107,6 +1287,38 @@
                 <p class="settings-note">Your choice is saved in this browser and applied automatically on your next visit.</p>
             </div>
         </div>
+
+        <div class="panel settings-card">
+            <div class="panel-header">
+                <h3 class="panel-title">Notifications</h3>
+            </div>
+            <div class="panel-content">
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <span class="settings-row-label">SMS alerts</span>
+                        <span class="settings-row-desc">Get a text message when a new pothole is detected.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="smsToggle" aria-label="Enable SMS alerts">
+                        <span class="switch-track"><span class="switch-thumb"></span></span>
+                    </label>
+                </div>
+
+                <div class="phone-field" id="phoneField" hidden>
+                    <label for="phoneNumber">Mobile number</label>
+                    <div class="phone-input-row" id="phoneInputRow">
+                        <span class="country-code">+91</span>
+                        <input type="tel" id="phoneNumber" inputmode="numeric" autocomplete="tel-national"
+                               maxlength="13" placeholder="98765 43210" aria-describedby="phoneError">
+                    </div>
+                    <p class="field-error" id="phoneError">Enter a valid 10-digit Indian mobile number.</p>
+                </div>
+
+                <div class="settings-actions">
+                    <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save</button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <div class="toast-container" id="toastContainer"></div>
@@ -1137,6 +1349,9 @@
                         <select id="cityInput" required>
                             <option value="">Select city</option>
                         </select>
+                        <input type="text" id="cityTextInput" placeholder="Type your city"
+                               maxlength="60" autocomplete="off" hidden>
+                        <p class="field-hint" id="cityHint">We couldn't locate that city. Drag the pin on the map to set the location.</p>
                     </div>
                 </div>
                 <div class="form-error" id="locationError">Please select country, state and city.</div>
@@ -1230,10 +1445,11 @@
                 maxZoom: 19
             }).addTo(map);
 
-            // Click on map to fill lat/lng and open the report modal
+            // Click on map to fill lat/lng and open the report modal.
+            // `fromMapClick` stops the default location from overriding the pin.
             map.on('click', function (e) {
                 setLatLng(e.latlng.lat, e.latlng.lng);
-                openModal();
+                openModal(true);
             });
         }
 
@@ -1487,6 +1703,118 @@
 
         window.addEventListener('hashchange', renderView);
 
+        // Settings: SMS notifications
+        const SETTINGS_KEY = 'pothole_settings';
+        const smsToggle = document.getElementById('smsToggle');
+        const phoneField = document.getElementById('phoneField');
+        const phoneInputRow = document.getElementById('phoneInputRow');
+        const phoneNumberInput = document.getElementById('phoneNumber');
+        const phoneErrorEl = document.getElementById('phoneError');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+        // Strips spaces/dashes/brackets and an optional +91 (or 91) country code.
+        function normalizePhone(raw) {
+            let digits = String(raw || '').replace(/[\s\-().]/g, '');
+            if (digits.indexOf('+91') === 0) digits = digits.slice(3);
+            else if (digits.indexOf('91') === 0 && digits.length > 10) digits = digits.slice(2);
+            else if (digits.indexOf('0') === 0 && digits.length > 10) digits = digits.slice(1);
+            return digits;
+        }
+
+        // Indian mobile numbers are 10 digits and start with 6-9.
+        function isValidIndianMobile(digits) {
+            return /^[6-9]\d{9}$/.test(digits);
+        }
+
+        function clearPhoneError() {
+            phoneErrorEl.classList.remove('show');
+            phoneInputRow.classList.remove('has-error');
+        }
+
+        function showPhoneError() {
+            phoneErrorEl.classList.add('show');
+            phoneInputRow.classList.add('has-error');
+        }
+
+        function syncPhoneFieldVisibility() {
+            const enabled = smsToggle.checked;
+            phoneField.hidden = !enabled;
+            if (!enabled) clearPhoneError();
+        }
+
+        function loadPotholeSettings() {
+            let saved = {};
+            try {
+                saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
+            } catch (e) {
+                saved = {};
+            }
+            smsToggle.checked = saved.sms_enabled === true;
+            phoneNumberInput.value = typeof saved.phone === 'string' ? saved.phone : '';
+            clearPhoneError();
+            syncPhoneFieldVisibility();
+        }
+
+        function savePotholeSettings() {
+            const enabled = smsToggle.checked;
+            const digits = normalizePhone(phoneNumberInput.value);
+
+            if (enabled && !isValidIndianMobile(digits)) {
+                showPhoneError();
+                phoneNumberInput.focus();
+                showSettingsToast('Could not save', 'Enter a valid 10-digit Indian mobile number.', 'error');
+                return;
+            }
+
+            const settings = {
+                sms_enabled: enabled,
+                phone: enabled ? digits : ''
+            };
+
+            try {
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            } catch (e) {
+                showSettingsToast('Could not save', 'Browser storage is unavailable.', 'error');
+                return;
+            }
+
+            showSettingsToast(
+                'Settings saved',
+                enabled ? 'SMS alerts on for +91 ' + digits + '.' : 'SMS alerts turned off.',
+                'success'
+            );
+        }
+
+        // Generic toast for settings feedback (reuses the toast container/animation)
+        function showSettingsToast(title, message, variant) {
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + (variant === 'success' ? 'success' : 'error');
+            const icon = variant === 'success'
+                ? 'M4.5 12.75l6 6 9-13.5'
+                : 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z';
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="${icon}" />
+                    </svg>
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">${escapeHtml(title)}</div>
+                    <div class="toast-message">${escapeHtml(message)}</div>
+                </div>
+            `;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'toastIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        smsToggle.addEventListener('change', syncPhoneFieldVisibility);
+        phoneNumberInput.addEventListener('input', clearPhoneError);
+        saveSettingsBtn.addEventListener('click', savePotholeSettings);
+
         // Event Listeners
         exportBtn.addEventListener('click', exportCSV);
 
@@ -1562,8 +1890,11 @@
             tempMarker = L.marker([lat, lng]).addTo(map);
         }
 
-        // Full world location data (countries/states/cities) loaded at runtime.
-        // Cities lack coordinates, so on city select we geocode via Nominatim.
+        // ------------------------------------------------------------------
+        // Location data
+        // ------------------------------------------------------------------
+
+        // Known coordinates used for an instant map placement (before geocoding).
         const LOCATIONS = {
             India: {
                 Punjab: { Ludhiana: [30.900965, 75.857277], Amritsar: [31.6340, 74.8723], Jalandhar: [31.3260, 75.5762] },
@@ -1576,87 +1907,424 @@
             }
         };
 
-        function populateSelect(select, options, placeholder) {
-            select.innerHTML = `<option value="">${placeholder}</option>` +
-                options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+        // Built-in fallback city lists, shown immediately so the City dropdown is
+        // never empty even when the remote API is slow, fails or times out.
+        const LOCAL_CITIES = {
+            India: {
+                Punjab: [
+                    'Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali',
+                    'Hoshiarpur', 'Pathankot', 'Moga', 'Batala', 'Abohar', 'Malerkotla',
+                    'Khanna', 'Phagwara', 'Muktsar', 'Barnala', 'Firozpur', 'Kapurthala',
+                    'Zirakpur', 'Rajpura', 'Fazilka', 'Gurdaspur', 'Sangrur', 'Faridkot',
+                    'Ropar', 'Nawanshahr', 'Mansa', 'Tarn Taran', 'Fatehgarh Sahib', 'Sirhind',
+                    'Dera Bassi', 'Kharar', 'Samana', 'Nabha', 'Sunam', 'Jagraon',
+                    'Mukerian', 'Dasuya', 'Nakodar', 'Rampura Phul', 'Zira', 'Morinda',
+                    'Anandpur Sahib', 'Kotkapura', 'Malout', 'Talwandi Sabo', 'Dhuri',
+                    'Ahmedgarh', 'Raikot', 'Banga', 'Garhshankar', 'Phillaur', 'Jalalabad',
+                    'Sultanpur Lodhi', 'Dinanagar', 'Ajnala', 'Mandi Gobindgarh', 'Nangal',
+                    'Giddarbaha', 'Balachaur', 'Beas', 'Tapa', 'Longowal'
+                ],
+                Maharashtra: ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane', 'Aurangabad', 'Solapur'],
+                Delhi: ['New Delhi'],
+                Haryana: ['Gurugram', 'Faridabad', 'Panipat', 'Ambala', 'Hisar'],
+                'Himachal Pradesh': ['Shimla', 'Dharamshala', 'Solan', 'Mandi', 'Kullu'],
+                Chandigarh: ['Chandigarh'],
+                'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Varanasi', 'Agra', 'Noida', 'Prayagraj'],
+                Rajasthan: ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer'],
+                'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior', 'Jabalpur'],
+                Gujarat: ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
+                Karnataka: ['Bengaluru', 'Mysuru', 'Mangaluru', 'Hubballi'],
+                'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli'],
+                Kerala: ['Thiruvananthapuram', 'Kochi', 'Kozhikode'],
+                'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Siliguri'],
+                Telangana: ['Hyderabad', 'Warangal', 'Nizamabad'],
+                'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Tirupati'],
+                Bihar: ['Patna', 'Gaya', 'Bhagalpur', 'Muzaffarpur'],
+                Odisha: ['Bhubaneswar', 'Cuttack', 'Rourkela', 'Puri'],
+                Uttarakhand: ['Dehradun', 'Haridwar', 'Roorkee'],
+                Assam: ['Guwahati', 'Dibrugarh', 'Silchar']
+            },
+            USA: {
+                California: ['Los Angeles', 'San Francisco', 'San Diego', 'Sacramento'],
+                'New York': ['New York City', 'Buffalo', 'Rochester', 'Albany'],
+                Texas: ['Houston', 'Dallas', 'Austin', 'San Antonio'],
+                Florida: ['Miami', 'Orlando', 'Tampa', 'Jacksonville'],
+                Illinois: ['Chicago', 'Springfield'],
+                Washington: ['Seattle', 'Spokane']
+            }
+        };
+
+        const OTHER_CITY_VALUE = '__other__';
+        const OTHER_CITY_LABEL = 'Other (type manually)';
+        const DEFAULT_LOCATION = { country: 'India', state: 'Punjab', city: 'Ludhiana' };
+        const CITY_FETCH_TIMEOUT = 5000;
+        const GEOCODE_TIMEOUT = 8000;
+
+        // Caches so reopening the modal (or revisiting a country) never refetches.
+        const LOCATION_CACHE = { states: {}, cities: {} };
+        let WORLD = null;              // remote countries/states/cities dataset
+        let worldDataLoaded = false;   // gates caching until the dataset has landed
+        let cityRequestToken = 0;      // guards against out-of-order city merges
+        let cityManualMode = false;    // true while the text input replaces the select
+
+        const cityTextInput = document.getElementById('cityTextInput');
+        const cityHint = document.getElementById('cityHint');
+        const cityLabel = document.querySelector('label[for="cityInput"]');
+
+        // fetch() with an abort timeout so a hanging API can't stall the UI.
+        function fetchWithTimeout(url, options, timeout) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeout);
+            return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+                .finally(() => clearTimeout(timer));
         }
 
-        // Attempt to load full world dataset; fall back to LOCATIONS on failure.
-        let WORLD = null;
-        async function loadWorldData() {
-            try {
-                const [countriesRes, statesRes, citiesRes] = await Promise.all([
-                    fetch('https://countriesnow.space/api/v0.1/countries/'),
-                    fetch('https://countriesnow.space/api/v0.1/countries/states'),
-                    fetch('https://countriesnow.space/api/v0.1/countries/cities')
-                ]);
-                const c = await countriesRes.json();
-                const s = await statesRes.json();
-                const ci = await citiesRes.json();
+        // Loose region matching: case-insensitive and ignores a trailing
+        // "State"/"Province", so "Punjab" always matches "Punjab State".
+        function normalizeRegion(name) {
+            return String(name || '').trim().toLowerCase()
+                .replace(/\s+(state|province)$/i, '')
+                .replace(/^state\s+of\s+/i, '')
+                .trim();
+        }
 
-                const countryNames = (c.data || []).map(x => x.country);
+        function cacheKey(country, state) {
+            return normalizeRegion(country) + '|' + normalizeRegion(state);
+        }
+
+        // Finds the real key of a region inside an object using loose matching.
+        function findRegionKey(collection, name) {
+            if (!collection || !name) return null;
+            if (Object.prototype.hasOwnProperty.call(collection, name)) return name;
+            const target = normalizeRegion(name);
+            for (const key of Object.keys(collection)) {
+                if (normalizeRegion(key) === target) return key;
+            }
+            return null;
+        }
+
+        // Same loose matching, but for a plain array of names.
+        function findNameInList(list, name) {
+            if (!list || !name) return null;
+            if (list.indexOf(name) !== -1) return name;
+            const target = normalizeRegion(name);
+            for (const item of list) {
+                if (normalizeRegion(item) === target) return item;
+            }
+            return null;
+        }
+
+        // Merges two name lists: ignores blanks, de-duplicates case-insensitively
+        // and sorts A to Z.
+        function mergeSortedUnique(primary, secondary) {
+            const seen = {};
+            const out = [];
+            (primary || []).concat(secondary || []).forEach(name => {
+                if (!name) return;
+                const trimmed = String(name).trim();
+                const key = trimmed.toLowerCase();
+                if (!trimmed || seen[key]) return;
+                seen[key] = true;
+                out.push(trimmed);
+            });
+            return out.sort((a, b) => a.localeCompare(b));
+        }
+
+        function populateSelect(select, options, placeholder, preserve) {
+            const previous = preserve ? select.value : null;
+            select.innerHTML = `<option value="">${placeholder}</option>` +
+                options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+            if (previous && options.indexOf(previous) !== -1) select.value = previous;
+        }
+
+        // Local + remote states for a country (computed once, then cached).
+        function getStatesForCountry(country) {
+            if (!country) return [];
+            const key = normalizeRegion(country);
+            if (LOCATION_CACHE.states[key]) {
+                return LOCATION_CACHE.states[key];
+            }
+            const local = localStatesFor(country);
+            const remote = (WORLD && WORLD.statesMap[country]) ?
+                WORLD.statesMap[country].map(x => x.name) : [];
+            const merged = mergeSortedUnique(local, remote);
+            // Only memoize once the full dataset is in, so a list built from the
+            // local fallback before load can't get stuck missing remote states.
+            if (worldDataLoaded) LOCATION_CACHE.states[key] = merged;
+            return merged;
+        }
+
+        function localStatesFor(country) {
+            const key = findRegionKey(LOCAL_CITIES, country);
+            if (key) return Object.keys(LOCAL_CITIES[key]);
+            const coordsKey = findRegionKey(LOCATIONS, country);
+            return coordsKey ? Object.keys(LOCATIONS[coordsKey]) : [];
+        }
+
+        function localCitiesFor(country, state) {
+            const countryKey = findRegionKey(LOCAL_CITIES, country);
+            const stateKey = countryKey ? findRegionKey(LOCAL_CITIES[countryKey], state) : null;
+            return stateKey ? LOCAL_CITIES[countryKey][stateKey] : [];
+        }
+
+        function localCoordFor(city) {
+            if (!city) return null;
+            const countryKey = findRegionKey(LOCATIONS, countryInput.value);
+            const stateKey = countryKey ? findRegionKey(LOCATIONS[countryKey], stateInput.value) : null;
+            return stateKey ? (LOCATIONS[countryKey][stateKey][city] || null) : null;
+        }
+
+        // Cities from countriesnow, served from cache when possible. Any failure,
+        // timeout or empty result resolves to [] so the caller keeps the local list.
+        async function fetchRemoteCities(country, state) {
+            const key = cacheKey(country, state);
+            if (LOCATION_CACHE.cities[key]) return LOCATION_CACHE.cities[key];
+
+            let cities = [];
+            if (WORLD && WORLD.citiesMap[country]) {
+                cities = WORLD.citiesMap[country] || [];
+            } else {
+                try {
+                    const res = await fetchWithTimeout(
+                        'https://countriesnow.space/api/v0.1/countries/cities', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ country })
+                    }, CITY_FETCH_TIMEOUT);
+                    if (res.ok) {
+                        const json = await res.json();
+                        cities = (json.data && json.data.cities) || [];
+                    }
+                } catch (e) {
+                    cities = [];   // network error or 5s timeout -> keep local list
+                }
+            }
+
+            LOCATION_CACHE.cities[key] = cities;
+            return cities;
+        }
+
+        function setCityOptions(cities, preserveValue) {
+            const previous = preserveValue ? cityInput.value : null;
+            let html = '<option value="">Select city</option>';
+            cities.forEach(city => {
+                html += `<option value="${escapeHtml(city)}">${escapeHtml(city)}</option>`;
+            });
+            html += `<option value="${OTHER_CITY_VALUE}">${OTHER_CITY_LABEL}</option>`;
+            cityInput.innerHTML = html;
+            if (previous && cities.indexOf(previous) !== -1) cityInput.value = previous;
+        }
+
+        function showCityHint() { cityHint.classList.add('show'); }
+        function clearCityHint() { cityHint.classList.remove('show'); }
+
+        // ---- manual city entry ("Other") ------------------------------------
+
+        function setCityLabelTarget(id) {
+            if (cityLabel) cityLabel.setAttribute('for', id);
+        }
+
+        function enableManualCity() {
+            cityManualMode = true;
+            cityInput.hidden = true;
+            cityTextInput.hidden = false;
+            setCityLabelTarget('cityTextInput');
+            cityTextInput.value = '';
+            clearCityHint();
+            cityTextInput.focus();
+        }
+
+        function disableManualCity() {
+            if (!cityManualMode) return;
+            cityManualMode = false;
+            cityTextInput.hidden = true;
+            cityInput.hidden = false;
+            setCityLabelTarget('cityInput');
+        }
+
+        // The value that counts as "the city" for validation/submission.
+        function getCityValue() {
+            return cityManualMode ? cityTextInput.value.trim() : cityInput.value;
+        }
+
+        // Geocodes "city, state, country" and flies the map there.
+        // Returns true on success. Never throws - a failure just means the
+        // user keeps the current pin (or places it by dragging the map).
+        async function geocodeCity(city) {
+            const country = countryInput.value;
+            const state = stateInput.value;
+            if (!city || !country || !state) return false;
+            try {
+                const q = encodeURIComponent(`${city}, ${state}, ${country}`);
+                const res = await fetchWithTimeout(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`,
+                    { headers: { 'Accept-Language': 'en' } }, GEOCODE_TIMEOUT);
+                if (!res.ok) return false;
+                const data = await res.json();
+                if (!data || !data.length) return false;
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                if (isNaN(lat) || isNaN(lon)) return false;
+                setLatLng(lat, lon);
+                map.flyTo([lat, lon], 13);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function selectCityFromDropdown(city) {
+            if (!city || !countryInput.value || !stateInput.value) return;
+
+            areaInput.value = city;
+            clearCityHint();
+
+            // Instant offline placement when we already know the coordinates.
+            const coords = localCoordFor(city);
+            if (coords) {
+                setLatLng(coords[0], coords[1]);
+                map.flyTo(coords, 13);
+            }
+
+            // Refine with Nominatim. If it fails, whatever pin we have stays put.
+            const ok = await geocodeCity(city);
+            if (!ok && !coords) showCityHint();
+        }
+
+        // ---- world dataset ---------------------------------------------------
+
+        function loadWorldData() {
+            return Promise.all([
+                fetchWithTimeout('https://countriesnow.space/api/v0.1/countries/', {}, 5000).then(r => r.json()).catch(() => null),
+                fetchWithTimeout('https://countriesnow.space/api/v0.1/countries/states', {}, 5000).then(r => r.json()).catch(() => null),
+                fetchWithTimeout('https://countriesnow.space/api/v0.1/countries/cities', {}, 5000).then(r => r.json()).catch(() => null)
+            ]).then(([c, s, ci]) => {
+                // Local countries first so India/Punjab are always reachable offline.
+                const countryNames = [];
+                const seenCountry = {};
+                Object.keys(LOCAL_CITIES).concat((c && c.data || []).map(x => x.country))
+                    .forEach(name => {
+                        if (!name || seenCountry[name]) return;
+                        seenCountry[name] = true;
+                        countryNames.push(name);
+                    });
+
                 const statesMap = {};
-                (s.data || []).forEach(st => { statesMap[st.name] = st.states; });
+                (s && s.data || []).forEach(st => { statesMap[st.name] = st.states; });
                 const citiesMap = {};
-                (ci.data || []).forEach(item => { citiesMap[item.country] = item.cities; });
+                (ci && ci.data || []).forEach(item => { citiesMap[item.country] = item.cities; });
 
                 WORLD = { countryNames, statesMap, citiesMap };
+                worldDataLoaded = true;
                 populateSelect(countryInput, countryNames, 'Select country');
-            } catch (e) {
-                console.error('Falling back to built-in locations:', e);
-                WORLD = null;
-                populateSelect(countryInput, Object.keys(LOCATIONS), 'Select country');
-            }
+
+                // If the modal was opened before the country list arrived, apply
+                // the India > Punjab > Ludhiana default now. If the user already
+                // picked a country, refresh the state list with the full dataset.
+                if (reportModal.classList.contains('open')) {
+                    if (countryInput.value) {
+                        const states = getStatesForCountry(countryInput.value);
+                        populateSelect(stateInput, states, 'Select state', true);
+                    } else {
+                        applyDefaultLocation();
+                    }
+                }
+            });
         }
         loadWorldData();
 
+        // ---- dropdown handlers ----------------------------------------------
+
         countryInput.addEventListener('change', function () {
-            if (WORLD) {
-                const states = (WORLD.statesMap[this.value] || []).map(x => x.name);
-                populateSelect(stateInput, states, 'Select state');
-                populateSelect(cityInput, [], 'Select city');
-            } else {
-                const states = this.value ? Object.keys(LOCATIONS[this.value]) : [];
-                populateSelect(stateInput, states, 'Select state');
-                populateSelect(cityInput, [], 'Select city');
+            const country = this.value;
+            disableManualCity();
+            setCityOptions([]);
+            if (!country) {
+                populateSelect(stateInput, [], 'Select state');
+                return;
             }
+            const states = getStatesForCountry(country);
+            populateSelect(stateInput, states, 'Select state');
         });
 
-        stateInput.addEventListener('change', function () {
-            if (WORLD) {
-                const stateObj = (WORLD.statesMap[countryInput.value] || []).find(x => x.name === this.value);
-                const cities = stateObj && stateObj.cities ? stateObj.cities.map(c => c.name) : (WORLD.citiesMap[countryInput.value] || []);
-                populateSelect(cityInput, cities, 'Select city');
-            } else {
-                const cities = countryInput.value && this.value ? Object.keys(LOCATIONS[countryInput.value][this.value]) : [];
-                populateSelect(cityInput, cities, 'Select city');
+        stateInput.addEventListener('change', async function () {
+            const country = countryInput.value;
+            const state = this.value;
+            const token = ++cityRequestToken;
+
+            disableManualCity();
+            clearCityHint();
+            if (!country || !state) {
+                setCityOptions([]);
+                return;
+            }
+
+            // 1. Show the local list straight away.
+            const local = localCitiesFor(country, state);
+            setCityOptions(mergeSortedUnique(local, []));
+
+            // 2. Merge the remote list in the background (silently on failure).
+            try {
+                const remote = await fetchRemoteCities(country, state);
+                if (token !== cityRequestToken) return;   // a newer change won
+                const merged = mergeSortedUnique(local, remote);
+                if (merged.length) setCityOptions(merged, !cityManualMode);
+            } catch (e) {
+                // Timeout / network / bad payload: silently keep the local list.
             }
         });
 
         cityInput.addEventListener('change', async function () {
-            if (!countryInput.value || !stateInput.value || !this.value) return;
-            if (!WORLD) {
-                const coords = LOCATIONS[countryInput.value][stateInput.value][this.value];
-                setLatLng(coords[0], coords[1]);
-                map.setView(coords, 13);
-                areaInput.value = this.value;
+            if (this.value === OTHER_CITY_VALUE) {
+                enableManualCity();
                 return;
             }
-            areaInput.value = this.value;
-            try {
-                const q = encodeURIComponent(`${this.value}, ${stateInput.value}, ${countryInput.value}`);
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, { headers: { 'Accept-Language': 'en' } });
-                const data = await res.json();
-                if (data && data[0]) {
-                    const lat = parseFloat(data[0].lat);
-                    const lon = parseFloat(data[0].lon);
-                    setLatLng(lat, lon);
-                    map.setView([lat, lon], 13);
-                }
-            } catch (e) {
-                console.error('Geocode failed:', e);
-            }
+            if (!this.value) return;
+            disableManualCity();
+            await selectCityFromDropdown(this.value);
         });
+
+        cityTextInput.addEventListener('input', function () {
+            clearCityHint();
+        });
+
+        // Geocoding a manually typed city moves the map without touching the
+        // Location / Area field, which the user is filling in themselves.
+        cityTextInput.addEventListener('change', async function () {
+            const city = this.value.trim();
+            if (!city) return;
+            if (!(await geocodeCity(city))) showCityHint();
+        });
+
+        // ---- default location on open ---------------------------------------
+
+        // Defaults to India > Punjab > Ludhiana. Only fills empty fields, so it
+        // never overwrites a location the user already chose.
+        function applyDefaultLocation() {
+            if (countryInput.value) return;
+
+            const country = DEFAULT_LOCATION.country;
+            if (!Array.from(countryInput.options).some(o => o.value === country)) return;   // not ready yet
+
+            countryInput.value = country;
+
+            const states = getStatesForCountry(country);
+            if (!states.length) return;   // states aren't ready yet
+            populateSelect(stateInput, states, 'Select state');
+
+            const stateValue = findNameInList(states, DEFAULT_LOCATION.state);
+            if (stateValue) stateInput.value = stateValue;
+
+            const cached = LOCATION_CACHE.cities[cacheKey(country, DEFAULT_LOCATION.state)] || [];
+            const cities = mergeSortedUnique(localCitiesFor(country, DEFAULT_LOCATION.state), cached);
+            setCityOptions(cities);
+
+            if (findNameInList(cities, DEFAULT_LOCATION.city)) {
+                cityInput.value = DEFAULT_LOCATION.city;
+                selectCityFromDropdown(DEFAULT_LOCATION.city);
+            }
+        }
+
 
         // Use browser geolocation
         geoBtn.addEventListener('click', function () {
@@ -1684,13 +2352,18 @@
             );
         });
 
-        function openModal() {
+        function openModal(fromMapClick) {
             reportModal.classList.add('open');
+            // Default to India > Punjab > Ludhiana, but never override a location
+            // the user already picked (e.g. opened by clicking the map).
+            if (!fromMapClick) applyDefaultLocation();
         }
 
         function closeModal() {
             reportModal.classList.remove('open');
             reportForm.reset();
+            disableManualCity();
+            clearCityHint();
             photoPreview.style.display = 'none';
             compressedPhotoDataUrl = null;
             [areaError, severityError, latError, lngError, locationError, photoError].forEach(e => e.classList.remove('show'));
@@ -1712,7 +2385,7 @@
             let valid = true;
             [areaError, severityError, latError, lngError, locationError, photoError].forEach(el => el.classList.remove('show'));
 
-            if (!countryInput.value || !stateInput.value || !cityInput.value) { showError(locationError); valid = false; }
+            if (!countryInput.value || !stateInput.value || !getCityValue()) { showError(locationError); valid = false; }
             if (!areaInput.value.trim()) { showError(areaError); valid = false; }
             if (!severityInput.value) { showError(severityError); valid = false; }
             if (!photoInput.files || photoInput.files.length === 0 || !compressedPhotoDataUrl) { showError(photoError); valid = false; }
@@ -1782,6 +2455,7 @@
         // Initialize
         // Theme was applied pre-paint by the inline head script; align the UI + state.
         applyTheme(document.documentElement.getAttribute('data-theme-preference') || 'system', false);
+        loadPotholeSettings();
         renderView();
         initMap();
         fetchDetections();
