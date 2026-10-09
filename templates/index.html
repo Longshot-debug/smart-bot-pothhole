@@ -10,33 +10,39 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         :root {
+            --background: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --accent-teal: #06b6d4;
+            --accent-teal-hover: #0891b2;
+            --danger: #ef4444;
+            --warning: #f97316;
+            --success: #22c55e;
             --navy: #0f172a;
             --navy-light: #1e293b;
-            --accent: #06b6d4;
-            --accent-hover: #0891b2;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-            --high: #ef4444;
-            --medium: #f97316;
-            --low: #22c55e;
-            --online: #22c55e;
+            --navy-blur: rgba(15, 23, 42, 0.78);
             --radius: 12px;
             --transition: all 0.2s ease;
+            --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.07);
+            --shadow-hover: 0 4px 10px rgba(15, 23, 42, 0.08), 0 12px 28px rgba(15, 23, 42, 0.14);
         }
 
         [data-theme="dark"] {
+            --background: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --border: #334155;
+            --accent-teal: #0891b2;
+            --accent-teal-hover: #06b6d4;
+            --danger: #f87171;
+            --warning: #fbbf24;
+            --success: #4ade80;
             --navy: #f8fafc;
             --navy-light: #f1f5f9;
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --text: #f1f5f9;
-            --text-muted: #94a3b8;
-            --border: #334155;
+            --navy-blur: rgba(15, 23, 42, 0.78);
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
             --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
         }
@@ -49,7 +55,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg);
+            background: var(--background);
             color: var(--text);
             min-height: 100vh;
             transition: var(--transition);
@@ -57,16 +63,19 @@
 
         /* Header */
         header {
-            background: var(--navy);
-            color: var(--navy);
+            background: var(--navy-blur);
+            color: white;
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: var(--shadow);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             position: sticky;
             top: 0;
             z-index: 100;
+            -webkit-backdrop-filter: blur(14px) saturate(180%);
+            backdrop-filter: blur(14px) saturate(180%);
         }
 
         .header-left {
@@ -84,7 +93,7 @@
         .logo-icon {
             width: 40px;
             height: 40px;
-            background: var(--accent);
+            background: var(--accent-teal);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -112,13 +121,13 @@
             border-radius: 9999px;
             font-size: 0.875rem;
             font-weight: 500;
-            color: var(--online);
+            color: var(--success);
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background: var(--online);
+            background: var(--success);
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
@@ -149,16 +158,28 @@
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: var(--accent-teal);
             color: white;
+            box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25);
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
+            background: var(--accent-teal-hover);
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.35);
+        }
+
+        .btn-primary:focus-visible {
+            outline: 2px solid var(--accent-teal);
+            outline-offset: 2px;
+        }
+
+        .btn-primary:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 3px rgba(6, 182, 212, 0.25);
         }
 
         .btn-secondary {
-            background: var(--card-bg);
+            background: var(--card);
             color: var(--text);
             border: 1px solid var(--border);
         }
@@ -167,39 +188,40 @@
             background: var(--navy-light);
         }
 
-        .theme-toggle {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 10px;
-            background: var(--card-bg);
-            cursor: pointer;
+        /* Nav Tabs (view switching) */
+        .nav-tabs {
             display: flex;
             align-items: center;
-            justify-content: center;
-            transition: var(--transition);
+            gap: 0.25rem;
+            padding: 0.25rem;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.12);
         }
 
-        .theme-toggle:hover {
-            background: var(--navy-light);
+        .nav-tab {
+            padding: 0.5rem 0.875rem;
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: color 0.2s ease, background 0.2s ease;
         }
 
-        .theme-toggle svg {
-            width: 20px;
-            height: 20px;
-            stroke: var(--text);
+        .nav-tab:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
         }
 
-        .theme-toggle .sun-icon {
-            display: none;
+        .nav-tab.active {
+            background: var(--card);
+            color: var(--text);
+            font-weight: 600;
         }
 
-        [data-theme="dark"] .theme-toggle .sun-icon {
-            display: block;
-        }
-
-        [data-theme="dark"] .theme-toggle .moon-icon {
-            display: none;
+        [hidden] {
+            display: none !important;
         }
 
         /* Main Content */
@@ -207,6 +229,89 @@
             padding: 2rem;
             max-width: 1400px;
             margin: 0 auto;
+        }
+
+        /* Settings View */
+        .settings-view {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .settings-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .settings-subtitle {
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
+
+        .settings-card {
+            max-width: 560px;
+        }
+
+        .settings-desc {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+
+        .theme-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1.25rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--background);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .theme-option svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .theme-option:hover {
+            border-color: var(--accent-teal);
+            color: var(--accent-teal);
+        }
+
+        .theme-option:focus-visible {
+            outline: 2px solid var(--accent-teal);
+            outline-offset: 2px;
+        }
+
+        .theme-option.active {
+            border-color: var(--accent-teal);
+            background: rgba(6, 182, 212, 0.12);
+            color: var(--accent-teal);
+            box-shadow: 0 0 0 1px var(--accent-teal);
+        }
+
+        .settings-note {
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--muted);
         }
 
         /* Stat Cards */
@@ -218,17 +323,17 @@
         }
 
         .stat-card {
-            background: var(--card-bg);
+            background: var(--card);
             border-radius: var(--radius);
             padding: 1.5rem;
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
-            transition: var(--transition);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .stat-card:hover {
             box-shadow: var(--shadow-hover);
-            transform: translateY(-2px);
+            transform: translateY(-4px);
         }
 
         .stat-header {
@@ -241,7 +346,7 @@
         .stat-title {
             font-size: 0.875rem;
             font-weight: 500;
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
         .stat-icon {
@@ -260,17 +365,17 @@
 
         .stat-card:nth-child(1) .stat-icon {
             background: rgba(6, 182, 212, 0.15);
-            color: var(--accent);
+            color: var(--accent-teal);
         }
 
         .stat-card:nth-child(2) .stat-icon {
             background: rgba(239, 68, 68, 0.15);
-            color: var(--high);
+            color: var(--danger);
         }
 
         .stat-card:nth-child(3) .stat-icon {
             background: rgba(34, 197, 94, 0.15);
-            color: var(--online);
+            color: var(--success);
         }
 
         .stat-value {
@@ -281,7 +386,7 @@
 
         .stat-sublabel {
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--muted);
             margin-top: 0.5rem;
         }
 
@@ -300,11 +405,10 @@
 
         /* Panel */
         .panel {
-            background: var(--card-bg);
+            background: var(--card);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
-            overflow: hidden;
         }
 
         .panel-header {
@@ -334,11 +438,12 @@
         }
 
         .detection-card {
-            background: var(--bg);
+            background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: var(--radius);
             padding: 1rem;
-            transition: var(--transition);
+            box-shadow: var(--shadow);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             animation: slideIn 0.3s ease;
         }
 
@@ -355,7 +460,7 @@
 
         .detection-card:hover {
             box-shadow: var(--shadow-hover);
-            transform: translateX(4px);
+            transform: translateY(-4px);
         }
 
         .detection-header {
@@ -378,22 +483,35 @@
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 600;
+            letter-spacing: 0.02em;
             text-transform: uppercase;
+            border: 1px solid transparent;
+        }
+
+        .severity-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
         }
 
         .severity-badge.high {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--high);
+            background: rgba(239, 68, 68, 0.14);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.35);
         }
 
         .severity-badge.medium {
-            background: rgba(249, 115, 22, 0.15);
-            color: var(--medium);
+            background: rgba(249, 115, 22, 0.14);
+            color: var(--warning);
+            border-color: rgba(249, 115, 22, 0.35);
         }
 
         .severity-badge.low {
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--low);
+            background: rgba(34, 197, 94, 0.14);
+            color: var(--success);
+            border-color: rgba(34, 197, 94, 0.35);
         }
 
         .source-badge {
@@ -408,17 +526,17 @@
 
         .source-badge.manual {
             background: rgba(6, 182, 212, 0.15);
-            color: var(--accent);
+            color: var(--accent-teal);
         }
 
         .source-badge.sensor {
             background: rgba(100, 116, 139, 0.15);
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
         .detection-desc {
             font-size: 0.8125rem;
-            color: var(--text-muted);
+            color: var(--muted);
             margin-top: 0.5rem;
             word-break: break-word;
         }
@@ -427,7 +545,7 @@
             display: flex;
             gap: 1.5rem;
             font-size: 0.8125rem;
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
         .detection-meta span {
@@ -443,7 +561,7 @@
             justify-content: center;
             padding: 3rem 1.5rem;
             text-align: center;
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
         .empty-state svg {
@@ -460,8 +578,13 @@
         /* Map */
         #map {
             height: 500px;
-            border-radius: 10px;
             width: 100%;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            background: var(--card);
+            z-index: 0;
         }
 
         @media (max-width: 768px) {
@@ -472,6 +595,10 @@
             }
 
             main {
+                padding: 1rem;
+            }
+
+            .settings-view {
                 padding: 1rem;
             }
 
@@ -496,7 +623,7 @@
         }
 
         .toast {
-            background: var(--card-bg);
+            background: var(--card);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 1rem 1.25rem;
@@ -536,17 +663,17 @@
 
         .toast.high .toast-icon {
             background: rgba(239, 68, 68, 0.15);
-            color: var(--high);
+            color: var(--danger);
         }
 
         .toast.medium .toast-icon {
             background: rgba(249, 115, 22, 0.15);
-            color: var(--medium);
+            color: var(--warning);
         }
 
         .toast.low .toast-icon {
             background: rgba(34, 197, 94, 0.15);
-            color: var(--low);
+            color: var(--success);
         }
 
         .toast-content {
@@ -560,7 +687,7 @@
 
         .toast-message {
             font-size: 0.8125rem;
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
         /* Leaflet custom */
@@ -594,15 +721,15 @@
         }
 
         .marker-icon.high {
-            background: var(--high);
+            background: var(--danger);
         }
 
         .marker-icon.medium {
-            background: var(--medium);
+            background: var(--warning);
         }
 
         .marker-icon.low {
-            background: var(--low);
+            background: var(--success);
         }
 
         .marker-icon:hover {
@@ -633,36 +760,46 @@
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(2, 6, 23, 0.55);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1100;
             padding: 1rem;
             opacity: 0;
+            visibility: hidden;
             pointer-events: none;
-            transition: opacity 0.2s ease;
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.25s ease, visibility 0.25s ease, -webkit-backdrop-filter 0.25s ease, backdrop-filter 0.25s ease;
         }
 
         .modal-overlay.open {
             opacity: 1;
+            visibility: visible;
             pointer-events: auto;
         }
 
         .modal {
-            background: var(--card-bg);
+            background: var(--card);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: var(--shadow-hover);
             width: 100%;
             max-width: 480px;
+            max-height: calc(100vh - 2rem);
             padding: 1.5rem;
-            transform: translateY(10px);
-            transition: transform 0.2s ease;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateY(24px) scale(0.97);
+            -webkit-transform: translateY(24px) scale(0.97);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
         }
 
         .modal-overlay.open .modal {
-            transform: translateY(0);
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            -webkit-transform: translateY(0) scale(1);
         }
 
         .modal-header {
@@ -670,6 +807,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
         }
 
         .modal-title {
@@ -683,7 +822,7 @@
             border: none;
             border-radius: 8px;
             background: transparent;
-            color: var(--text-muted);
+            color: var(--muted);
             cursor: pointer;
             font-size: 1.25rem;
             line-height: 1;
@@ -695,15 +834,38 @@
             color: var(--text);
         }
 
+        #reportForm {
+            display: flex;
+            flex-direction: column;
+        }
+
         .form-group {
             margin-bottom: 1rem;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-row .form-group {
+            margin-bottom: 0;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 0.375rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
         }
 
         .form-group input,
@@ -716,22 +878,27 @@
             font-family: inherit;
             font-size: 0.875rem;
             color: var(--text);
-            background: var(--bg);
-            transition: var(--transition);
+            background: var(--card);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--muted);
+            opacity: 0.75;
         }
 
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-teal);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.18);
         }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+        .form-group textarea {
+            resize: vertical;
+            min-height: 72px;
         }
 
         @media (max-width: 480px) {
@@ -741,10 +908,15 @@
         }
 
         .form-error {
-            color: var(--high);
-            font-size: 0.75rem;
-            margin-top: 0.25rem;
             display: none;
+            margin-bottom: 1rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            font-size: 0.75rem;
+            font-weight: 500;
         }
 
         .form-error.show {
@@ -754,10 +926,39 @@
         .modal-actions {
             display: flex;
             justify-content: flex-end;
+            align-items: center;
             gap: 0.75rem;
-            margin-top: 1.25rem;
+            margin-top: 0.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .modal-actions .btn {
+            padding: 0.625rem 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-actions .btn-primary {
+            min-width: 148px;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
         }
     </style>
+    <script>
+        // Apply the saved theme before first paint to avoid a flash of the wrong theme.
+        (function () {
+            var pref = 'system';
+            try {
+                pref = localStorage.getItem('theme') || 'system';
+            } catch (e) { /* storage blocked - fall back to system */ }
+
+            var isDark = pref === 'dark' || (pref === 'system' &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme-preference', pref);
+        })();
+    </script>
 </head>
 <body>
     <header>
@@ -776,6 +977,10 @@
             </div>
         </div>
         <div class="header-right">
+            <nav class="nav-tabs" aria-label="Views">
+                <a class="nav-tab" href="#dashboard" data-view="dashboard">Dashboard</a>
+                <a class="nav-tab" href="#settings" data-view="settings">Settings</a>
+            </nav>
             <button class="btn btn-primary" id="reportBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 5v14M5 12h14"></path>
@@ -790,18 +995,10 @@
                 </svg>
                 Export CSV
             </button>
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-                <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                </svg>
-                <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                </svg>
-            </button>
         </div>
     </header>
 
-    <main>
+    <main id="dashboardView">
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-header">
@@ -846,7 +1043,7 @@
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">Recent Detections</h2>
-                    <span id="detectionCount" style="font-size: 0.75rem; color: var(--text-muted);">0 reports</span>
+                    <span id="detectionCount" style="font-size: 0.75rem; color: var(--muted);">0 reports</span>
                 </div>
                 <div class="panel-content">
                     <div class="detections-list" id="detectionsList">
@@ -864,7 +1061,7 @@
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">Live Map View</h2>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">Ludhiana, Punjab</span>
+                    <span style="font-size: 0.75rem; color: var(--muted);">Ludhiana, Punjab</span>
                 </div>
                 <div class="panel-content" style="padding: 0;">
                     <div id="map"></div>
@@ -872,6 +1069,45 @@
             </div>
         </div>
     </main>
+
+    <!-- Settings View -->
+    <section class="settings-view" id="settingsView" hidden>
+        <div class="settings-header">
+            <h2 class="settings-title">Settings</h2>
+            <p class="settings-subtitle">Manage your dashboard preferences.</p>
+        </div>
+
+        <div class="panel settings-card">
+            <div class="panel-header">
+                <h3 class="panel-title">Appearance</h3>
+            </div>
+            <div class="panel-content">
+                <p class="settings-desc">Choose how the dashboard looks. "System" follows your device's light or dark setting.</p>
+                <div class="theme-options" role="radiogroup" aria-label="Theme">
+                    <button type="button" class="theme-option" data-theme-choice="light" role="radio" aria-checked="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 0 017.5 0z" />
+                        </svg>
+                        <span>Light</span>
+                    </button>
+                    <button type="button" class="theme-option" data-theme-choice="dark" role="radio" aria-checked="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                        </svg>
+                        <span>Dark</span>
+                    </button>
+                    <button type="button" class="theme-option" data-theme-choice="system" role="radio" aria-checked="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+                            <rect x="7" y="6" width="10" height="8" rx="1" fill="currentColor" stroke="none" />
+                        </svg>
+                        <span>System</span>
+                    </button>
+                </div>
+                <p class="settings-note">Your choice is saved in this browser and applied automatically on your next visit.</p>
+            </div>
+        </div>
+    </section>
 
     <div class="toast-container" id="toastContainer"></div>
 
@@ -930,7 +1166,7 @@
                         Use my current location
                     </button>
                     <div class="form-error" id="geoError">Could not get location.</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to set the location.</div>
+                    <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.375rem;">Tip: you can also click anywhere on the map to set the location.</div>
                     <div class="form-error" id="latError">Please set the location (click the map or use current location).</div>
                     <div class="form-error" id="lngError">Please set the location (click the map or use current location).</div>
                 </div>
@@ -969,7 +1205,6 @@
         const highSeverityEl = document.getElementById('highSeverity');
         const lastDetectionEl = document.getElementById('lastDetection');
         const exportBtn = document.getElementById('exportBtn');
-        const themeToggle = document.getElementById('themeToggle');
         const toastContainer = document.getElementById('toastContainer');
 
         // Severity colors
@@ -1035,9 +1270,9 @@
                         <strong>${escapeHtml(detection.area)}</strong><br>
                         <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[normSeverity(detection.severity)]}20; color: ${severityColors[normSeverity(detection.severity)]}; text-transform: uppercase;">${detection.severity}</span>
                         <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${detection.source === 'manual' ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)'}; color: ${detection.source === 'manual' ? '#06b6d4' : '#64748b'}; text-transform: uppercase;">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span><br><br>
-                        <span style="color: var(--text-muted); font-size: 0.8125rem;">📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span><br>
-                        <span style="color: var(--text-muted); font-size: 0.8125rem;">🕐 ${detection.time}</span>
-                        ${detection.description ? `<br><span style="color: var(--text-muted); font-size: 0.8125rem;">${escapeHtml(detection.description)}</span>` : ''}
+                        <span style="color: var(--muted); font-size: 0.8125rem;">📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span><br>
+                        <span style="color: var(--muted); font-size: 0.8125rem;">🕐 ${detection.time}</span>
+                        ${detection.description ? `<br><span style="color: var(--muted); font-size: 0.8125rem;">${escapeHtml(detection.description)}</span>` : ''}
                         ${detection.has_photo ? `<br><img src="/photo/${escapeHtml(detection.id)}" alt="Pothole photo" style="max-width: 160px; margin-top: 0.5rem; border-radius: 8px; cursor: pointer;" onclick="window.open('/photo/${escapeHtml(detection.id)}', '_blank')">` : ''}
                     </div>
                 `);
@@ -1047,8 +1282,9 @@
                 bounds.push([detection.latitude, detection.longitude]);
             });
 
-            // Fit map to markers
-            if (bounds.length > 0) {
+            // Fit map to markers (skip while the dashboard view is hidden,
+            // otherwise Leaflet measures a zero-size container)
+            if (bounds.length > 0 && !dashboardView.hidden) {
                 map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
             }
         }
@@ -1177,22 +1413,82 @@
             URL.revokeObjectURL(link.href);
         }
 
-        // Theme Toggle
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
+        // Theme (Light / Dark / System) - the saved preference is applied
+        // before first paint by the inline script in <head>.
+        const themeOptions = Array.from(document.querySelectorAll('.theme-option'));
+        const systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let lastAppliedTheme = null;
+
+        function resolveTheme(pref) {
+            if (pref === 'dark' || pref === 'light') return pref;
+            return systemDarkQuery.matches ? 'dark' : 'light';
         }
 
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
+        function syncThemeOptionUI(pref) {
+            themeOptions.forEach(btn => {
+                const active = btn.dataset.themeChoice === pref;
+                btn.classList.toggle('active', active);
+                btn.setAttribute('aria-checked', active ? 'true' : 'false');
+            });
         }
+
+        function applyTheme(pref, save) {
+            const resolved = resolveTheme(pref);
+            document.documentElement.setAttribute('data-theme', resolved);
+            document.documentElement.setAttribute('data-theme-preference', pref);
+            lastAppliedTheme = resolved;
+            syncThemeOptionUI(pref);
+            if (save !== false) {
+                try { localStorage.setItem('theme', pref); } catch (e) { }
+            }
+        }
+
+        function handleSystemThemeChange() {
+            const pref = document.documentElement.getAttribute('data-theme-preference') || 'system';
+            if (pref !== 'system') return;
+            const resolved = resolveTheme('system');
+            if (resolved === lastAppliedTheme) return;
+            applyTheme('system', false);
+        }
+
+        if (typeof systemDarkQuery.addEventListener === 'function') {
+            systemDarkQuery.addEventListener('change', handleSystemThemeChange);
+        } else if (systemDarkQuery.addListener) {
+            systemDarkQuery.addListener(handleSystemThemeChange);
+        }
+
+        themeOptions.forEach(btn => {
+            btn.addEventListener('click', () => applyTheme(btn.dataset.themeChoice, true));
+        });
+
+        // Hash-based view routing (Dashboard / Settings) - no page reload.
+        const dashboardView = document.getElementById('dashboardView');
+        const settingsView = document.getElementById('settingsView');
+        const navTabs = Array.from(document.querySelectorAll('.nav-tab'));
+
+        function currentView() {
+            return window.location.hash.replace('#', '') === 'settings' ? 'settings' : 'dashboard';
+        }
+
+        function renderView() {
+            const view = currentView();
+            const showSettings = view === 'settings';
+
+            dashboardView.hidden = showSettings;
+            settingsView.hidden = !showSettings;
+            navTabs.forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.view === view);
+            });
+
+            if (!showSettings && map) {
+                map.invalidateSize();
+            }
+        }
+
+        window.addEventListener('hashchange', renderView);
 
         // Event Listeners
         exportBtn.addEventListener('click', exportCSV);
-        themeToggle.addEventListener('click', toggleTheme);
 
         // Report Modal
         const reportBtn = document.getElementById('reportBtn');
@@ -1466,7 +1762,7 @@
             const toast = document.createElement('div');
             toast.className = 'toast high';
             toast.innerHTML = `
-                <div class="toast-icon" style="background: rgba(239,68,68,0.15); color: var(--high);">
+                <div class="toast-icon" style="background: rgba(239,68,68,0.15); color: var(--danger);">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -1484,7 +1780,9 @@
         }
 
         // Initialize
-        initTheme();
+        // Theme was applied pre-paint by the inline head script; align the UI + state.
+        applyTheme(document.documentElement.getAttribute('data-theme-preference') || 'system', false);
+        renderView();
         initMap();
         fetchDetections();
 

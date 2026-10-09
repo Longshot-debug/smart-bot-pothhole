@@ -1,12 +1,13 @@
 from flask import Flask, render_template, request, jsonify, Response
 from flask_cors import CORS
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 import threading
 import os
 import json
 import requests
 import uuid
+import hashlib
 
 app = Flask(__name__)
 CORS(app)
@@ -36,9 +37,7 @@ def redis_request(method, endpoint, json_data=None):
 
 def redis_lpush(report):
     """Push report to Redis list (newest first)."""
-    # Store a single JSON string, not a nested list value
     redis_request("POST", f"/lpush/{REDIS_KEY}", json.dumps(report))
-    # Trim to max 5 items
     redis_request("POST", f"/ltrim/{REDIS_KEY}", [0, MAX_HISTORY - 1])
 
 def _normalize_report(item):
@@ -77,13 +76,11 @@ def validate_report(data):
     if not data:
         return False, 'No JSON data provided', None
     
-    # Check required fields
     required_fields = ['area', 'severity', 'latitude', 'longitude']
     for field in required_fields:
         if field not in data:
             return False, f'Missing required field: {field}', None
     
-    # Sanitize text fields
     area = sanitize_text(data['area'], 100)
     if not area:
         return False, 'Area name is required', None
@@ -93,7 +90,6 @@ def validate_report(data):
     if severity not in valid_severities:
         return False, 'Invalid severity. Must be Low, Medium or High', None
     
-    # Validate latitude and longitude
     try:
         latitude = float(data['latitude'])
         longitude = float(data['longitude'])
@@ -105,10 +101,8 @@ def validate_report(data):
     if not (-180 <= longitude <= 180):
         return False, 'Longitude must be between -180 and 180', None
     
-    # Sanitize optional description
     description = sanitize_text(data.get('description', ''), 300)
     
-    # Source defaults to 'sensor'
     source = data.get('source', 'sensor')
     if source not in ['sensor', 'manual']:
         source = 'sensor'
@@ -122,7 +116,6 @@ def validate_report(data):
         'source': source
     }
     
-    # Photo handling: required for manual, optional for sensor
     photo = data.get('photo')
     if source == 'manual':
         if not photo or not isinstance(photo, str) or not photo.startswith('data:image/'):
@@ -133,13 +126,16 @@ def validate_report(data):
     
     return True, None, sanitized
 
+def make_etag(data):
+    """Generate ETag from data."""
+    return hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/report_pothole', methods=['POST'])
 def report_pothole():
-    # Abuse protection: reject requests larger than 300KB
     if request.content_length and request.content_length > 300 * 1024:
         return jsonify({'error': 'Request too large (max 300KB)'}), 413
     
@@ -149,8 +145,8 @@ def report_pothole():
     if not is_valid:
         return jsonify({'error': error}), 400
     
-    # Add timestamp and unique id
-    current_time = datetime.now().strftime('%H:%M:%S')
+    # Add UTC ISO timestamp and unique id
+    current_time = datetime.now(timezone.utc).isoformat()
     report = {
         'id': uuid.uuid4().hex,
         'time': current_time,
@@ -198,8 +194,17 @@ def get_pothole_history():
         r.pop('photo', None)
         safe_list.append(r)
     
+    # Generate ETag
+    etag = make_etag(safe_list)
+    
+    # Check If-None-Match header
+    if_none_match = request.headers.get('If-None-Match')
+    if if_none_match and if_none_match.strip('"') == etag:
+        return '', 304
+    
     response = jsonify(safe_list)
     response.headers['Cache-Control'] = 'no-store'
+    response.headers['ETag'] = f'"{etag}"'
     return response
 
 @app.route('/photo/<report_id>')
@@ -223,7 +228,6 @@ def get_photo(report_id):
         import base64
         return Response(base64.b64decode(b64), mimetype=mime)
     except Exception:
-        # Fallback: return the raw data URL
         return Response(photo, mimetype='text/plain')
 
 if __name__ == '__main__':
