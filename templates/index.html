@@ -591,6 +591,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            min-height: 320px;
             max-height: 500px;
             overflow-y: auto;
         }
@@ -602,6 +603,12 @@
             padding: 1rem;
             box-shadow: var(--shadow);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        /* Only applied to cards added after the first render, so existing
+           cards never re-animate on a poll. */
+        .detection-card.card-enter {
             animation: slideIn 0.3s ease;
         }
 
@@ -1403,6 +1410,15 @@
         let markers = [];
         let lastKnownCount = 0;
         let isFirstLoad = true;
+        let isFirstRender = true;        // suppress the enter animation on first paint
+
+        // Keyed list rendering: id -> DOM node. Cards are created once and then
+        // updated in place, so a poll never rebuilds the list or reloads images.
+        const cardElements = new Map();
+        let lastRenderedSnapshot = '';
+
+        const POLL_INTERVAL = 8000;      // ms between polls
+        let pollTimer = null;
 
         // DOM Elements
         const detectionsList = document.getElementById('detectionsList');
