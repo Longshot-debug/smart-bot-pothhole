@@ -591,6 +591,8 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            /* Fixed floor: cards are added/removed in place during a poll, and
+               the panel (plus the map beside it) must never jump. */
             min-height: 320px;
             max-height: 500px;
             overflow-y: auto;
@@ -717,6 +719,25 @@
             display: flex;
             align-items: center;
             gap: 0.375rem;
+        }
+
+        /* Thumbnails are created once per card and reused across polls, so a
+           fixed box guarantees the layout never shifts either. */
+        .detection-time .rel {
+            opacity: 0.75;
+            white-space: nowrap;
+        }
+
+        .detection-thumb {
+            display: block;
+            width: 120px;
+            height: 90px;
+            margin-top: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            object-fit: cover;
+            background: var(--background);
+            cursor: pointer;
         }
 
         .empty-state {
@@ -1316,12 +1337,13 @@
                     <div class="phone-input-row" id="phoneInputRow">
                         <span class="country-code">+91</span>
                         <input type="tel" id="phoneNumber" inputmode="numeric" autocomplete="tel-national"
-                               maxlength="13" placeholder="98765 43210" aria-describedby="phoneError">
+                               maxlength="16" placeholder="98765 43210" aria-describedby="phoneError">
                     </div>
-                    <p class="field-error" id="phoneError">Enter a valid 10-digit Indian mobile number.</p>
+                    <p class="field-error" id="phoneError">Enter a valid number in international format, e.g. +919876543210.</p>
                 </div>
 
                 <div class="settings-actions">
+                    <button type="button" class="btn btn-secondary" id="testSmsBtn">Send test SMS</button>
                     <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save</button>
                 </div>
             </div>
@@ -1495,7 +1517,7 @@
                         <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${severityColors[normSeverity(detection.severity)]}20; color: ${severityColors[normSeverity(detection.severity)]}; text-transform: uppercase;">${detection.severity}</span>
                         <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: ${detection.source === 'manual' ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)'}; color: ${detection.source === 'manual' ? '#06b6d4' : '#64748b'}; text-transform: uppercase;">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span><br><br>
                         <span style="color: var(--muted); font-size: 0.8125rem;">📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span><br>
-                        <span style="color: var(--muted); font-size: 0.8125rem;">🕐 ${detection.time}</span>
+                        <span style="color: var(--muted); font-size: 0.8125rem;">🕐 ${escapeHtml(timeLabel(detection))}</span>
                         ${detection.description ? `<br><span style="color: var(--muted); font-size: 0.8125rem;">${escapeHtml(detection.description)}</span>` : ''}
                         ${detection.has_photo ? `<br><img src="/photo/${escapeHtml(detection.id)}" alt="Pothole photo" style="max-width: 160px; margin-top: 0.5rem; border-radius: 8px; cursor: pointer;" onclick="window.open('/photo/${escapeHtml(detection.id)}', '_blank')">` : ''}
                     </div>
@@ -1513,42 +1535,368 @@
             }
         }
 
-        // Render detections list
-        function renderDetections() {
-            if (detections.length === 0) {
-                detectionsList.innerHTML = '';
-                emptyState.style.display = 'flex';
-                detectionCount.textContent = '0 reports';
+        // ------------------------------------------------------------------
+        // Keyed rendering of the Recent Detections list.
+        //
+        // `cardElements` (declared above) maps a report key (its id) to the
+        // live DOM node. Cards are created exactly once and then updated in
+        // place, so a poll never rebuilds the list, never recreates an <img>
+        // and never replays the enter animation on an on-screen card.
+        // ------------------------------------------------------------------
+        // Compact "9 Oct, 11:54 PM" in the viewer's local time zone.
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // Old rows only carry a clock ("HH:MM:SS"), not a full timestamp.
+        const TIME_ONLY = /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*$/;
+
+        // Parses created_at / time. Returns { date } for a real timestamp,
+        // { timeOnly } for legacy clock-only values, or null when unusable.
+        function parseReportTime(report) {
+            const raw = report ? (report.created_at !== undefined && report.created_at !== null
+                ? report.created_at : report.time) : null;
+            if (raw === null || raw === undefined) return null;
+            const text = String(raw).trim();
+            if (!text) return null;
+            if (TIME_ONLY.test(text)) return { timeOnly: text };
+            const date = new Date(text);
+            if (isNaN(date.getTime())) return null;
+            return { date: date };
+        }
+
+        function formatDateTime(date) {
+            let hours = date.getHours();
+            const meridiem = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0) hours = 12;
+            return date.getDate() + ' ' + MONTHS[date.getMonth()] + ', ' +
+                hours + ':' + String(date.getMinutes()).padStart(2, '0') + ' ' + meridiem;
+        }
+
+        function formatRelative(date) {
+            const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+            if (seconds < 45) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + ' min ago';
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return hours + (hours === 1 ? ' hr ago' : ' hrs ago');
+            const days = Math.floor(hours / 24);
+            if (days < 30) return days + (days === 1 ? ' day ago' : ' days ago');
+            const months = Math.floor(days / 30);
+            if (months < 12) return months + (months === 1 ? ' month ago' : ' months ago');
+            const years = Math.floor(days / 365);
+            return years + (years === 1 ? ' year ago' : ' years ago');
+        }
+
+        // Local time plus a relative label, e.g. "9 Oct, 11:54 PM · 5 min ago".
+        // Clock-only legacy values are shown verbatim; the raw ISO string is
+        // never displayed.
+        function timeLabel(report) {
+            const parsed = parseReportTime(report);
+            if (!parsed) return '—';
+            if (parsed.timeOnly) return parsed.timeOnly;
+            return formatDateTime(parsed.date) + ' · ' + formatRelative(parsed.date);
+        }
+
+        function coordsLabel(report) {
+            const lat = Number(report ? report.latitude : NaN);
+            const lng = Number(report ? report.longitude : NaN);
+            if (!isFinite(lat) || !isFinite(lng)) return '\u{1F4CD} Unknown location';
+            return '\u{1F4CD} ' + lat.toFixed(6) + ', ' + lng.toFixed(6);
+        }
+
+        // Stable key for a report. Reports always carry an id; the fallback
+        // covers legacy rows that do not.
+        function reportKey(report) {
+            const id = report ? report.id : null;
+            if (id !== undefined && id !== null && String(id).length > 0) return 'id:' + String(id);
+            return 'fb:' + String(report && (report.created_at !== undefined ? report.created_at : report.time)) +
+                '|' + String(report && report.area) +
+                '|' + String(report && report.latitude) + ',' + String(report && report.longitude);
+        }
+
+        // Newest first, and stable: equal or missing timestamps keep the order
+        // the server sent them in.
+        function orderedDetections(list) {
+            const decorated = list.map((d, index) => ({
+                report: d,
+                index: index,
+                ts: (function () {
+                    const parsed = parseReportTime(d);
+                    return parsed && parsed.date ? parsed.date.getTime() : null;
+                })()
+            }));
+
+            decorated.sort((a, b) => {
+                if (a.ts === null && b.ts === null) return a.index - b.index;
+                if (a.ts === null) return 1;
+                if (b.ts === null) return -1;
+                if (b.ts !== a.ts) return b.ts - a.ts;
+                return a.index - b.index;
+            });
+
+            return decorated.map(item => item.report);
+        }
+
+        // Only writes when the value actually changed.
+        function setText(el, text) {
+            if (el.textContent !== text) el.textContent = text;
+        }
+
+        function setClass(el, value) {
+            if (el.className !== value) el.className = value;
+        }
+
+        // Builds a card once. The thumbnail src is assigned here (and only in
+        // an update path where the photo appears later), so a card never
+        // reloads its image.
+        function createCard(detection, key) {
+            const card = document.createElement('div');
+            card.className = 'detection-card';
+            card.dataset.id = key;
+
+            const header = document.createElement('div');
+            header.className = 'detection-header';
+
+            const area = document.createElement('span');
+            area.className = 'detection-area';
+            area.textContent = detection && detection.area !== undefined && detection.area !== null
+                ? String(detection.area) : '';
+
+            const badges = document.createElement('div');
+            badges.setAttribute('style', 'display: flex; gap: 0.5rem; align-items: center;');
+
+            const severity = document.createElement('span');
+            severity.className = 'severity-badge';
+            severity.textContent = detection && detection.severity !== undefined && detection.severity !== null
+                ? String(detection.severity) : '';
+
+            const source = document.createElement('span');
+            source.className = 'source-badge';
+            source.textContent = detection && detection.source === 'manual' ? 'Manual' : 'Sensor';
+
+            badges.appendChild(severity);
+            badges.appendChild(source);
+
+            header.appendChild(area);
+            header.appendChild(badges);
+
+            const meta = document.createElement('div');
+            meta.className = 'detection-meta';
+
+            const coords = document.createElement('span');
+            coords.textContent = coordsLabel(detection);
+
+            const timeWrap = document.createElement('span');
+            timeWrap.className = 'detection-time';
+            timeWrap.appendChild(document.createTextNode('\u{1F552} '));
+            const timeEl = document.createElement('time');
+            timeEl.className = 'dt';
+            const relEl = document.createElement('span');
+            relEl.className = 'rel';
+            timeWrap.appendChild(timeEl);
+            timeWrap.appendChild(document.createTextNode(' · '));
+            timeWrap.appendChild(relEl);
+
+            meta.appendChild(coords);
+            meta.appendChild(timeWrap);
+
+            card.appendChild(header);
+            card.appendChild(meta);
+
+            const refs = {
+                el: card,
+                area: area,
+                severity: severity,
+                source: source,
+                coords: coords,
+                timeEl: timeEl,
+                relEl: relEl,
+                desc: null,
+                img: null
+            };
+
+            updateCardTime(refs, detection);
+            updateCardMeta(refs, detection);
+            updateCardBadges(refs, detection);
+            updateCardDescription(refs, detection);
+            updateCardPhoto(card, refs, detection);
+
+            return { el: card, refs: refs, data: detection };
+        }
+
+        function updateCardBadges(refs, detection) {
+            const severity = normSeverity(detection && detection.severity);
+            setClass(refs.severity, 'severity-badge ' + severity);
+            setText(refs.severity, detection && detection.severity !== undefined && detection.severity !== null
+                ? String(detection.severity) : '');
+            setText(refs.area, detection && detection.area !== undefined && detection.area !== null
+                ? String(detection.area) : '');
+
+            const isManual = !!(detection && detection.source === 'manual');
+            setClass(refs.source, 'source-badge ' + (isManual ? 'manual' : 'sensor'));
+            setText(refs.source, isManual ? 'Manual' : 'Sensor');
+        }
+
+        function updateCardMeta(refs, detection) {
+            setText(refs.coords, coordsLabel(detection));
+        }
+
+        function updateCardTime(refs, detection) {
+            const parsed = parseReportTime(detection);
+
+            if (!parsed) {
+                setText(refs.timeEl, '—');
+                refs.timeEl.removeAttribute('datetime');
+                setText(refs.relEl, '');
                 return;
             }
 
-            emptyState.style.display = 'none';
-            detectionCount.textContent = `${detections.length} report${detections.length !== 1 ? 's' : ''}`;
+            if (parsed.timeOnly) {
+                setText(refs.timeEl, parsed.timeOnly);
+                refs.timeEl.removeAttribute('datetime');
+                setText(refs.relEl, '');
+                return;
+            }
 
-            detectionsList.innerHTML = detections.map(detection => `
-                <div class="detection-card" data-id="${escapeHtml(detection.time)}-${escapeHtml(detection.area)}">
-                    <div class="detection-header">
-                        <span class="detection-area">${escapeHtml(detection.area)}</span>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <span class="severity-badge ${normSeverity(detection.severity)}">${detection.severity}</span>
-                            <span class="source-badge ${detection.source === 'manual' ? 'manual' : 'sensor'}">${detection.source === 'manual' ? 'Manual' : 'Sensor'}</span>
-                        </div>
-                    </div>
-                    <div class="detection-meta">
-                        <span>📍 ${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}</span>
-                        <span>🕐 ${detection.time}</span>
-                    </div>
-                    ${detection.description ? `<div class="detection-desc">${escapeHtml(detection.description)}</div>` : ''}
-                    ${detection.has_photo ? `<img src="/photo/${escapeHtml(detection.id)}" alt="Pothole photo" style="max-width: 120px; margin-top: 0.5rem; border-radius: 8px; cursor: pointer; border: 1px solid var(--border);" onclick="window.open('/photo/${escapeHtml(detection.id)}', '_blank')">` : ''}
-                </div>
-            `).join('');
+            setText(refs.timeEl, formatDateTime(parsed.date));
+            setText(refs.relEl, formatRelative(parsed.date));
+        }
+
+        function updateCardDescription(refs, detection) {
+            const description = detection && detection.description ? String(detection.description) : '';
+
+            if (!description) {
+                if (refs.desc) {
+                    refs.desc.remove();
+                    refs.desc = null;
+                }
+                return;
+            }
+
+            if (!refs.desc) {
+                const el = document.createElement('div');
+                el.className = 'detection-desc';
+                refs.el.appendChild(el);
+                refs.desc = el;
+            }
+            setText(refs.desc, description);
+        }
+
+        function updateCardPhoto(card, refs, detection) {
+            const hasPhoto = !!(detection && (detection.has_photo || detection.photo));
+
+            if (refs.img) {
+                if (!hasPhoto) {
+                    refs.img.remove();
+                    refs.img = null;
+                }
+                return;
+            }
+
+            if (!hasPhoto) return;
+
+            // Created once, src assigned once, then left alone forever.
+            const img = document.createElement('img');
+            img.className = 'detection-thumb';
+            img.alt = 'Pothole photo';
+            img.width = 120;
+            img.height = 90;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.src = '/photo/' + encodeURIComponent(String(detection.id));
+            img.addEventListener('click', function () {
+                window.open(img.src, '_blank');
+            });
+
+            refs.img = img;
+            card.appendChild(img);
+        }
+
+        function updateCard(card, detection) {
+            updateCardBadges(card.refs, detection);
+            updateCardMeta(card.refs, detection);
+            updateCardTime(card.refs, detection);
+            updateCardDescription(card.refs, detection);
+            updateCardPhoto(card.el, card.refs, detection);
+            card.data = detection;
+        }
+
+        // Render detections list by keyed diff (no innerHTML, no rebuilds).
+        function renderDetections() {
+            const items = orderedDetections(detections);
+
+            if (items.length === 0) {
+                cardElements.forEach(card => card.el.remove());
+                cardElements.clear();
+                detectionsList.appendChild(emptyState);
+                detectionCount.textContent = '0 reports';
+                isFirstRender = false;
+                return;
+            }
+
+            // The empty state is kept in the DOM but parked outside the cards.
+            if (emptyState.parentNode === detectionsList) {
+                detectionsList.removeChild(emptyState);
+            }
+
+            detectionCount.textContent = items.length + ' report' + (items.length !== 1 ? 's' : '');
+
+            items.forEach((detection, index) => {
+                const key = reportKey(detection);
+                let card = cardElements.get(key);
+
+                if (!card) {
+                    card = createCard(detection, key);
+                    cardElements.set(key, card);
+                    // Only a freshly inserted card animates in.
+                    if (!isFirstRender) attachEnterAnimation(card.el);
+                } else {
+                    updateCard(card, detection);
+                }
+
+                // Move into place (a no-op when it is already at this index).
+                const reference = detectionsList.children[index] || null;
+                if (reference !== card.el) {
+                    detectionsList.insertBefore(card.el, reference);
+                }
+            });
+
+            // Drop cards that disappeared from the payload.
+            const live = new Set(items.map(reportKey));
+            cardElements.forEach((card, key) => {
+                if (!live.has(key)) {
+                    card.el.remove();
+                    cardElements.delete(key);
+                }
+            });
+
+            isFirstRender = false;
+        }
+
+        // Fade-in for newly added cards only; the class is dropped on
+        // animationend so the card can never re-animate.
+        function attachEnterAnimation(el) {
+            el.classList.add('card-enter');
+
+            const onEnd = function (event) {
+                if (event.target !== el) return;
+                el.classList.remove('card-enter');
+                el.removeEventListener('animationend', onEnd);
+            };
+            el.addEventListener('animationend', onEnd);
+
+            // Belt and braces: drop the class even if animationend never
+            // arrives (reduced motion, background tab, ...).
+            setTimeout(function () {
+                el.classList.remove('card-enter');
+            }, 600);
         }
 
         // Update stats
         function updateStats() {
             const total = detections.length;
             const high = detections.filter(d => normSeverity(d.severity) === 'high').length;
-            const last = detections.length > 0 ? detections[0].time : '—';
+            const last = detections.length > 0 ? timeLabel(orderedDetections(detections)[0]) : '—';
 
             totalDetectionsEl.textContent = total;
             highSeverityEl.textContent = high;
@@ -1567,7 +1915,7 @@
                 </div>
                 <div class="toast-content">
                     <div class="toast-title">New ${detection.severity.charAt(0).toUpperCase() + detection.severity.slice(1)} Severity Detection</div>
-                    <div class="toast-message">${escapeHtml(detection.area)} • ${detection.time}</div>
+                    <div class="toast-message">${escapeHtml(detection.area)} • ${escapeHtml(timeLabel(detection))}</div>
                 </div>
             `;
             toastContainer.appendChild(toast);
@@ -1592,6 +1940,13 @@
                 if (!response.ok) throw new Error('Failed to fetch');
                 const data = await response.json();
 
+                // Anything that is not an array leaves the current list alone.
+                if (!Array.isArray(data)) return;
+
+                // Identical payload: nothing to re-render.
+                const snapshot = JSON.stringify(data);
+                if (snapshot === lastRenderedSnapshot) return;
+
                 // Check if new detection arrived
                 if (!isFirstLoad && data.length > lastKnownCount) {
                     const newDetections = data.slice(0, data.length - lastKnownCount);
@@ -1601,6 +1956,7 @@
                 detections = data;
                 lastKnownCount = data.length;
                 isFirstLoad = false;
+                lastRenderedSnapshot = snapshot;
 
                 renderDetections();
                 updateStats();
@@ -1719,19 +2075,21 @@
         const phoneNumberInput = document.getElementById('phoneNumber');
         const phoneErrorEl = document.getElementById('phoneError');
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const testSmsBtn = document.getElementById('testSmsBtn');
 
-        // Strips spaces/dashes/brackets and an optional +91 (or 91) country code.
-        function normalizePhone(raw) {
-            let digits = String(raw || '').replace(/[\s\-().]/g, '');
-            if (digits.indexOf('+91') === 0) digits = digits.slice(3);
-            else if (digits.indexOf('91') === 0 && digits.length > 10) digits = digits.slice(2);
-            else if (digits.indexOf('0') === 0 && digits.length > 10) digits = digits.slice(1);
-            return digits;
-        }
+        // E.164, the format the server stores and Twilio expects.
+        const E164_PATTERN = /^\+[1-9]\d{9,14}$/;
 
-        // Indian mobile numbers are 10 digits and start with 6-9.
-        function isValidIndianMobile(digits) {
-            return /^[6-9]\d{9}$/.test(digits);
+        // Normalises to E.164. A number typed with a leading "+" is kept as the
+        // user typed it (the server validates the country code); a bare 10-digit
+        // Indian mobile number gets "+91".
+        function toE164(raw) {
+            const value = String(raw || '').replace(/[\s\-().]/g, '');
+            if (!value) return '';
+            if (value.charAt(0) === '+') return value;
+            const digits = value.replace(/^0+/, '');
+            if (/^[6-9]\d{9}$/.test(digits)) return '+91' + digits;
+            return value;
         }
 
         function clearPhoneError() {
@@ -1751,48 +2109,120 @@
         }
 
         function loadPotholeSettings() {
+            // The server holds the real settings; localStorage is only a
+            // fallback for when the server cannot be reached.
+            fetch('/sms_settings', { headers: { 'Accept': 'application/json' } })
+                .then(response => {
+                    if (!response.ok) throw new Error('bad status');
+                    return response.json();
+                })
+                .then(saved => applyPotholeSettings(saved))
+                .catch(() => applyPotholeSettings(readLocalSettings()));
+        }
+
+        function readLocalSettings() {
             let saved = {};
             try {
                 saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {};
             } catch (e) {
                 saved = {};
             }
+            return saved;
+        }
+
+        function applyPotholeSettings(saved) {
             smsToggle.checked = saved.sms_enabled === true;
             phoneNumberInput.value = typeof saved.phone === 'string' ? saved.phone : '';
             clearPhoneError();
             syncPhoneFieldVisibility();
         }
 
-        function savePotholeSettings() {
+        async function savePotholeSettings() {
             const enabled = smsToggle.checked;
-            const digits = normalizePhone(phoneNumberInput.value);
+            const phone = toE164(phoneNumberInput.value);
 
-            if (enabled && !isValidIndianMobile(digits)) {
+            if (enabled && !E164_PATTERN.test(phone)) {
                 showPhoneError();
                 phoneNumberInput.focus();
-                showSettingsToast('Could not save', 'Enter a valid 10-digit Indian mobile number.', 'error');
+                showSettingsToast('Could not save',
+                    'Enter a valid number in international format, e.g. +919876543210.', 'error');
                 return;
             }
 
             const settings = {
                 sms_enabled: enabled,
-                phone: enabled ? digits : ''
+                phone: enabled ? phone : ''
             };
 
+            let savedOnServer = false;
             try {
-                localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+                const response = await fetch('/sms_settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                if (response.ok) {
+                    savedOnServer = true;
+                } else {
+                    const error = await response.json().catch(() => ({}));
+                    showSettingsToast('Could not save',
+                        error.error || 'The server rejected those settings.', 'error');
+                }
             } catch (e) {
-                showSettingsToast('Could not save', 'Browser storage is unavailable.', 'error');
-                return;
+                showSettingsToast('Server unreachable',
+                    'Settings were saved in this browser only.', 'error');
             }
 
-            showSettingsToast(
-                'Settings saved',
-                enabled ? 'SMS alerts on for +91 ' + digits + '.' : 'SMS alerts turned off.',
-                'success'
-            );
+            // localStorage stays as an offline fallback, nothing more.
+            try {
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            } catch (e) { }
+
+            if (savedOnServer) {
+                showSettingsToast(
+                    'Settings saved',
+                    enabled ? 'SMS alerts on for ' + phone + '.' : 'SMS alerts turned off.',
+                    'success'
+                );
+            }
         }
 
+        // Manual test message. Only ever runs from this click, never on load.
+        async function sendTestSms() {
+            const label = testSmsBtn.textContent;
+            testSmsBtn.disabled = true;
+            testSmsBtn.textContent = 'Sending...';
+            try {
+                const response = await fetch('/sms_test', { method: 'POST' });
+                const result = await response.json().catch(() => ({}));
+                if (response.ok && result.status === 'sent') {
+                    showSettingsToast('Test SMS sent',
+                        'Check your phone for the message.', 'success');
+                } else {
+                    showSettingsToast('Test SMS not sent',
+                        result.message || 'Please try again.', 'error');
+                }
+            } catch (e) {
+                showSettingsToast('Test SMS not sent',
+                    'Could not reach the server.', 'error');
+            } finally {
+                testSmsBtn.disabled = false;
+                testSmsBtn.textContent = label;
+            }
+        }
+
+        // Surfaces Twilio rejections from an automatic report alert, so a
+        // blocked number is obvious instead of silent. Skips stay silent.
+        function reportSmsOutcome(sms) {
+            if (!sms) return;
+            if (sms.status === 'failed') {
+                showSettingsToast('SMS alert not sent',
+                    sms.message || 'Check your Twilio settings.', 'error');
+            } else if (sms.status === 'skipped' && sms.reason === 'invalid_recipient') {
+                showSettingsToast('SMS alert not sent',
+                    'The saved phone number is not valid. Update it in Settings.', 'error');
+            }
+        }
         // Generic toast for settings feedback (reuses the toast container/animation)
         function showSettingsToast(title, message, variant) {
             const toast = document.createElement('div');
@@ -1822,6 +2252,7 @@
         smsToggle.addEventListener('change', syncPhoneFieldVisibility);
         phoneNumberInput.addEventListener('input', clearPhoneError);
         saveSettingsBtn.addEventListener('click', savePotholeSettings);
+        testSmsBtn.addEventListener('click', sendTestSms);
 
         // Event Listeners
         exportBtn.addEventListener('click', exportCSV);
@@ -2399,6 +2830,7 @@
                 if (response.ok) {
                     closeModal();
                     showToast(result.report);
+                    reportSmsOutcome(result.sms);
                     await fetchDetections();
                     if (map && result.report) {
                         map.setView([result.report.latitude, result.report.longitude], 15);
@@ -2439,9 +2871,31 @@
         renderView();
         initMap();
         fetchDetections();
+        schedulePoll();
 
-        // Auto-refresh every 2 seconds
-        setInterval(fetchDetections, 2000);
+        // Auto-refresh: a recursive setTimeout that waits for the in-flight
+        // request to settle, so polls never overlap and slow responses do not
+        // pile up.
+        async function pollDetections() {
+            try {
+                await fetchDetections();
+            } finally {
+                schedulePoll();
+            }
+        }
+
+        function schedulePoll() {
+            if (pollTimer !== null) clearTimeout(pollTimer);
+            pollTimer = setTimeout(pollDetections, POLL_INTERVAL);
+        }
+
+        // Relative labels ("5 min ago") drift as time passes; refresh them
+        // without touching the cards themselves.
+        setInterval(function () {
+            cardElements.forEach(card => {
+                if (card.data) updateCardTime(card.refs, card.data);
+            });
+        }, 30000);
     </script>
 </body>
 </html>
