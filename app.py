@@ -7,6 +7,7 @@ import os
 import json
 import base64
 import hashlib
+import math
 import re
 import time
 import requests
@@ -21,7 +22,9 @@ UPSTASH_REDIS_REST_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
 USE_REDIS = bool(UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN)
 
 REDIS_KEY = "potholes"
-MAX_HISTORY = 5
+# Raised from 5 so duplicate detection and the status counts can work over a
+# meaningful window. The list panel scrolls, so this does not affect layout.
+MAX_HISTORY = 200
 
 # Fallback in-memory storage for local development
 pothole_history = deque(maxlen=MAX_HISTORY)
@@ -67,6 +70,172 @@ def redis_lrange():
         if report is not None:
             reports.append(report)
     return reports
+
+# ---------------------------------------------------------------------------
+# Report status workflow
+#
+# Statuses live on the report itself, so they travel with the record through
+# both storage backends. Legacy rows without a status read as 'reported'.
+# ---------------------------------------------------------------------------
+
+REPORT_STATUSES = ('reported', 'in_progress', 'fixed')
+DEFAULT_REPORT_STATUS = 'reported'
+
+# Admins are the addresses listed in ADMIN_EMAILS (comma separated).
+ADMIN_EMAILS = [
+    email.strip().lower()
+    for email in (os.environ.get('ADMIN_EMAILS') or '').split(',')
+    if email.strip()
+]
+
+# A manual report within this radius of an unfixed report is a duplicate.
+DUPLICATE_RADIUS_METERS = 50
+
+# How the neighbour distance is computed (haversine, metres).
+EARTH_RADIUS_METERS = 6371000.0
+
+
+def norm_status(value):
+    """Normalise a status, defaulting to 'reported' for anything unknown.
+
+    Accepts 'in progress' and 'in-progress' spellings too, so a stale form or
+    a hand-written curl command still lands on the stored value.
+    """
+    text = str(value or '').strip().lower().replace('-', '_')
+    text = re.sub(r'\s+', '_', text)
+    return text if text in REPORT_STATUSES else DEFAULT_REPORT_STATUS
+
+
+def current_admin_email():
+    """
+    Email of the signed-in admin, or None.
+
+    SECURITY NOTE: the dashboard has no authentication, so the identity comes
+    from the X-User-Email header the client sends. That keeps the workflow
+    usable without a login system, but any caller can simply set that header.
+    Treat this as a trust signal for a private dashboard, not as real auth -
+    never expose it publicly without adding proper authentication.
+    """
+    email = (request.headers.get('X-User-Email') or '').strip().lower()
+    if email and email in ADMIN_EMAILS:
+        return email
+    return None
+
+
+def haversine_meters(lat1, lon1, lat2, lon2):
+    """Great-circle distance between two points, in metres."""
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = phi2 - phi1
+    d_lambda = math.radians(lon2 - lon1)
+    a = (math.sin(d_phi / 2) ** 2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2)
+    return 2 * EARTH_RADIUS_METERS * math.asin(min(1.0, math.sqrt(a)))
+
+
+def all_existing_reports():
+    """Every stored report, newest first, backend-agnostic."""
+    if USE_REDIS:
+        return redis_lrange()
+    with history_lock:
+        return list(pothole_history)
+
+
+def find_duplicate_report(latitude, longitude, source):
+    """
+    Nearest unfixed report within DUPLICATE_RADIUS_METERS.
+
+    Only manual reports are checked: a sensor and a manual report at the same
+    spot are usually two different observations rather than a re-submission.
+    Returns (distance_m, report) or None.
+    """
+    if source != 'manual':
+        return None
+
+    try:
+        lat = float(latitude)
+        lng = float(longitude)
+    except (TypeError, ValueError):
+        return None
+
+    best = None
+    try:
+        existing = all_existing_reports()
+    except Exception as e:
+        app.logger.error('Duplicate check failed to read history: %s', type(e).__name__)
+        return None
+
+    for item in existing:
+        report = _normalize_report(item)
+        if not report:
+            continue
+        if norm_status(report.get('status')) == 'fixed':
+            continue
+        try:
+            distance = haversine_meters(
+                lat, lng, float(report['latitude']), float(report['longitude'])
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        if distance <= DUPLICATE_RADIUS_METERS and (best is None or distance < best[0]):
+            best = (distance, report)
+
+    return best
+
+
+def _redis_update_report(report_id, mutate):
+    """
+    Rewrite one report inside the Redis list.
+
+    Redis lists hold opaque JSON strings, so the record is located by id and
+    written back with LSET. The value goes in the request body, exactly like
+    the LPUSH call above, so no JSON has to be URL-encoded.
+    """
+    reports = redis_lrange()
+    target = None
+    for index, item in enumerate(reports):
+        report = _normalize_report(item)
+        if report and report.get('id') == report_id:
+            mutate(report)
+            payload = json.dumps(report)
+            reports[index] = report
+            target = report
+            break
+
+    if target is None:
+        return None
+
+    try:
+        redis_request('POST', '/lset/%s/%d' % (REDIS_KEY, index), payload)
+        return target
+    except Exception as e:
+        # Some REST deployments only accept LSET arguments in the path, where
+        # raw JSON is unsafe. Fall back to DEL + LPUSH, which this file already
+        # uses for writes.
+        app.logger.error('LSET via body failed (%s), rewriting the list',
+                         type(e).__name__)
+        redis_request('POST', '/del/%s' % REDIS_KEY)
+        for item in reversed(reports):
+            redis_request('POST', '/lpush/%s' % REDIS_KEY, json.dumps(item))
+        redis_request('POST', '/ltrim/%s' % REDIS_KEY, [0, MAX_HISTORY - 1])
+        return target
+
+
+def update_report(report_id, mutate):
+    """Apply mutate(report) to a stored record. Returns the new dict, or None."""
+    if USE_REDIS:
+        try:
+            return _redis_update_report(report_id, mutate)
+        except Exception as e:
+            app.logger.error('Redis error updating report: %s', type(e).__name__)
+            return None
+
+    with history_lock:
+        for report in pothole_history:
+            if report.get('id') == report_id:
+                mutate(report)
+                return dict(report)
+    return None
 
 # ---------------------------------------------------------------------------
 # Twilio SMS notifications
@@ -559,10 +728,31 @@ def report_pothole():
         'latitude': sanitized['latitude'],
         'longitude': sanitized['longitude'],
         'description': sanitized['description'],
-        'source': sanitized['source']
+        'source': sanitized['source'],
+        # Status is only ever set here; every later change goes through
+        # PATCH /report/<id>/status by an admin.
+        'status': DEFAULT_REPORT_STATUS
     }
     if 'photo' in sanitized:
         report['photo'] = sanitized['photo']
+    
+    # Duplicate guard: a manual report within 50m of an unfixed report is
+    # rejected before anything is stored, so no SMS is sent for it either.
+    duplicate = find_duplicate_report(
+        sanitized['latitude'], sanitized['longitude'], sanitized['source']
+    )
+    if duplicate is not None:
+        distance, existing = duplicate
+        return jsonify({
+            'error': 'This looks like a duplicate: another pothole within '
+                     '%.0f m of this spot was already reported.'
+                     % min(distance, DUPLICATE_RADIUS_METERS),
+            'code': 'duplicate_report',
+            'duplicate_of': existing.get('id'),
+            'duplicate_area': existing.get('area'),
+            'duplicate_status': norm_status(existing.get('status')),
+            'distance_m': round(distance, 1)
+        }), 409
     
     if USE_REDIS:
         try:
@@ -659,6 +849,55 @@ def sms_test():
         return jsonify(detail), 502
     return jsonify({'status': 'sent'})
 
+
+@app.route('/admin/me', methods=['GET'])
+def admin_me():
+    """
+    Report whether the signed-in address is an admin.
+
+    The dashboard calls this to decide if it shows the status dropdowns. The
+    same trust caveat as current_admin_email() applies: this is a convenience
+    signal, not authentication.
+    """
+    email = current_admin_email()
+    return jsonify({'email': email, 'is_admin': email is not None})
+
+
+@app.route('/report/<report_id>/status', methods=['PATCH'])
+def report_status_update(report_id):
+    """Move a report between reported -> in_progress -> fixed. Admin only."""
+    if not current_admin_email():
+        # Deliberately identical for "no email" and "not an admin".
+        return jsonify({
+            'error': 'Admin access is required to change a report status.'
+        }), 403
+
+    data = request.get_json(silent=True) or {}
+    new_status = request_status_value(data)
+    if new_status not in REPORT_STATUSES:
+        return jsonify({
+            'error': "Invalid status '%s'. Use one of: %s."
+                     % (data.get('status'), ', '.join(REPORT_STATUSES))
+        }), 400
+
+    def apply(report):
+        report['status'] = new_status
+        report['status_updated_at'] = datetime.now(timezone.utc).isoformat()
+
+    updated = update_report(report_id, apply)
+    if updated is None:
+        return jsonify({'error': 'Report not found.'}), 404
+
+    return jsonify({'status': 'success', 'report': updated})
+
+
+def request_status_value(data):
+    """Normalise the incoming status without silently accepting typos."""
+    text = str(data.get('status') or '').strip().lower()
+    text = text.replace('-', '_').replace(' ', '_')
+    return text
+
+
 @app.route('/get_pothole_history', methods=['GET'])
 def get_pothole_history():
     if USE_REDIS:
@@ -678,6 +917,8 @@ def get_pothole_history():
         r = dict(r)
         r['has_photo'] = bool(r.get('photo'))
         r.pop('photo', None)
+        # Reports written before statuses existed read as 'reported'.
+        r['status'] = norm_status(r.get('status'))
         safe_list.append(r)
     
     # Generate ETag
