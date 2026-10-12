@@ -570,10 +570,18 @@
             line-height: 1.2;
         }
 
+        /* "Last Detection" holds a phrase like "2 days ago", not a number, so
+           it needs to shrink to fit one line instead of overflowing. */
+        .stat-value--relative {
+            font-size: clamp(1.4rem, 2.2vw, 2rem);
+            white-space: nowrap;
+        }
+
         .stat-sublabel {
             font-size: 0.75rem;
             color: var(--muted);
             margin-top: 0.5rem;
+            white-space: nowrap;
         }
 
         /* Dashboard Grid */
@@ -1395,8 +1403,8 @@
                         </svg>
                     </div>
                 </div>
-                <div class="stat-value" id="lastDetection">—</div>
-                <div class="stat-sublabel">Most recent report</div>
+                <div class="stat-value stat-value--relative" id="lastDetection">—</div>
+                <div class="stat-sublabel" id="lastDetectionTime">No reports yet</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
@@ -1700,6 +1708,7 @@
         const totalDetectionsEl = document.getElementById('totalDetections');
         const highSeverityEl = document.getElementById('highSeverity');
         const lastDetectionEl = document.getElementById('lastDetection');
+        const lastDetectionTimeEl = document.getElementById('lastDetectionTime');
         const exportBtn = document.getElementById('exportBtn');
         const toastContainer = document.getElementById('toastContainer');
         const fixedCountEl = document.getElementById('fixedCount');
@@ -1859,6 +1868,13 @@
             if (months < 12) return months + (months === 1 ? ' month ago' : ' months ago');
             const years = Math.floor(days / 365);
             return years + (years === 1 ? ' year ago' : ' years ago');
+        }
+
+        // Headline for the "Last Detection" card: "Just now", "5 min ago",
+        // "2 days ago". Starts with a capital, since it stands alone.
+        function relativeAgeLabel(date) {
+            const label = formatRelative(date);
+            return label.charAt(0).toUpperCase() + label.slice(1);
         }
 
         // Local time plus a relative label, e.g. "9 Oct, 11:54 PM · 5 min ago".
@@ -2275,7 +2291,51 @@
             totalDetectionsEl.textContent = total;
             highSeverityEl.textContent = high;
             fixedCountEl.textContent = fixed;
-            lastDetectionEl.textContent = last;
+            refreshLastDetection();
+        }
+
+        // The "Last Detection" card: relative age as the headline, exact local
+        // time underneath. Selected by created_at, never by list position.
+        function latestReport() {
+            let best = null;
+            let bestTime = -Infinity;
+
+            detections.forEach(report => {
+                // Ignore reports marked rejected.
+                if (isRejected(report)) return;
+
+                const parsed = parseReportTime(report);
+                if (!parsed || !parsed.date) return;
+                if (parsed.date.getTime() > bestTime) {
+                    bestTime = parsed.date.getTime();
+                    best = report;
+                }
+            });
+
+            return best;
+        }
+
+        function isRejected(report) {
+            const status = normStatus(report && report.status);
+            if (status === 'rejected') return true;
+            const rejectedFlag = report && (report.rejected || report.is_rejected);
+            return rejectedFlag === true;
+        }
+
+        // Draws only the two "Last Detection" nodes, so it can run every 30s
+        // without touching the detection cards.
+        function refreshLastDetection() {
+            const report = latestReport();
+
+            if (!report) {
+                setText(lastDetectionEl, '—');
+                setText(lastDetectionTimeEl, 'No reports yet');
+                return;
+            }
+
+            const parsed = parseReportTime(report);
+            setText(lastDetectionEl, relativeAgeLabel(parsed.date));
+            setText(lastDetectionTimeEl, formatDateTime(parsed.date));
         }
 
         // Map popup content, including the status pill.
@@ -3455,10 +3515,13 @@
         // Theme was applied pre-paint by the inline head script; align the UI + state.
         applyTheme(document.documentElement.getAttribute('data-theme-preference') || 'system', false);
         loadPotholeSettings();
+        readFilters();
+        loadAdminIdentity();
         renderView();
         initMap();
         fetchDetections();
         schedulePoll();
+        setInterval(refreshLastDetection, 30000);
 
         // Auto-refresh: a recursive setTimeout that waits for the in-flight
         // request to settle, so polls never overlap and slow responses do not
