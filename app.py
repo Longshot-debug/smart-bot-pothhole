@@ -7,6 +7,7 @@ import os
 import json
 import base64
 import hashlib
+import hmac
 import math
 import re
 import time
@@ -81,12 +82,20 @@ def redis_lrange():
 REPORT_STATUSES = ('reported', 'in_progress', 'fixed')
 DEFAULT_REPORT_STATUS = 'reported'
 
-# Admins are the addresses listed in ADMIN_EMAILS (comma separated).
-ADMIN_EMAILS = [
-    email.strip().lower()
-    for email in (os.environ.get('ADMIN_EMAILS') or '').split(',')
-    if email.strip()
-]
+# Admins authenticate with a passcode. ADMIN_EMAILS is no longer read: an
+# email is not a secret, so anyone could type the admin's address and be
+# treated as that admin. The key is only ever compared server-side and is
+# never sent to the browser.
+ADMIN_KEY = os.environ.get('ADMIN_KEY', '').strip()
+
+# Failed admin attempts are rate limited per client IP: 5 per 10 minutes.
+# Redis keeps the count across instances on Vercel; the in-memory fallback
+# only spans one warm instance.
+ADMIN_RATE_ATTEMPTS = 5
+ADMIN_RATE_WINDOW = 600
+
+admin_rate_memory = {}
+admin_rate_lock = threading.Lock()
 
 # A manual report within this radius of an unfixed report is a duplicate.
 DUPLICATE_RADIUS_METERS = 50
@@ -106,20 +115,98 @@ def norm_status(value):
     return text if text in REPORT_STATUSES else DEFAULT_REPORT_STATUS
 
 
-def current_admin_email():
+def valid_admin_key(candidate):
     """
-    Email of the signed-in admin, or None.
+    Constant-time comparison of the supplied passcode with ADMIN_KEY.
 
-    SECURITY NOTE: the dashboard has no authentication, so the identity comes
-    from the X-User-Email header the client sends. That keeps the workflow
-    usable without a login system, but any caller can simply set that header.
-    Treat this as a trust signal for a private dashboard, not as real auth -
-    never expose it publicly without adding proper authentication.
+    Always False when ADMIN_KEY is unset, so a missing variable fails closed
+    rather than letting everyone in.
     """
-    email = (request.headers.get('X-User-Email') or '').strip().lower()
-    if email and email in ADMIN_EMAILS:
-        return email
-    return None
+    if not ADMIN_KEY or not candidate:
+        return False
+    try:
+        return hmac.compare_digest(
+            candidate.encode('utf-8'), ADMIN_KEY.encode('utf-8')
+        )
+    except Exception:
+        return False
+
+
+def _client_ip():
+    """Best-effort client IP, honouring the proxy Vercel sits behind."""
+    forwarded = request.headers.get('X-Forwarded-For') or ''
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _admin_rate_key(ip):
+    # The IP is hashed so no address ends up in a Redis key name.
+    return 'admin_fail:' + hashlib.sha256(ip.encode('utf-8')).hexdigest()[:32]
+
+
+def _admin_fail_stamps(ip):
+    """Failed attempts for this IP inside the current window."""
+    now = time.time()
+    if USE_REDIS:
+        try:
+            raw = _redis_get(_admin_rate_key(ip))
+            stamps = json.loads(_decode_payload(raw) or '[]')
+            return [s for s in stamps
+                    if isinstance(s, (int, float)) and (now - s) < ADMIN_RATE_WINDOW]
+        except Exception:
+            return []
+    with admin_rate_lock:
+        stamps = admin_rate_memory.get(ip, [])
+        return [s for s in stamps if (now - s) < ADMIN_RATE_WINDOW]
+
+
+def _admin_fail_save(ip, stamps):
+    if USE_REDIS:
+        try:
+            _redis_set(_admin_rate_key(ip), json.dumps(stamps), ADMIN_RATE_WINDOW)
+            return
+        except Exception:
+            pass
+    with admin_rate_lock:
+        admin_rate_memory[ip] = stamps
+
+
+def admin_rate_limited(ip):
+    """True once this IP has burned ADMIN_RATE_ATTEMPTS bad keys."""
+    return len(_admin_fail_stamps(ip)) >= ADMIN_RATE_ATTEMPTS
+
+
+def admin_fail_record(ip):
+    """Count one failed attempt. Called only when the key was wrong."""
+    stamps = _admin_fail_stamps(ip)
+    stamps.append(time.time())
+    _admin_fail_save(ip, stamps)
+
+
+def admin_gate():
+    """
+    Decide whether the request carries a valid admin passcode.
+
+    Returns (ok, response). Records a failure and rate limits per IP, so
+    ADMIN_KEY cannot be walked through by repeated guesses.
+    """
+    ip = _client_ip()
+
+    if admin_rate_limited(ip):
+        app.logger.error('Admin passcode rate limited for ip hash %s',
+                         _admin_rate_key(ip))
+        return False, (jsonify({
+            'error': 'Too many failed admin attempts. Try again in 10 minutes.'
+        }), 429)
+
+    if valid_admin_key(request.headers.get('X-Admin-Key')):
+        return True, None
+
+    admin_fail_record(ip)
+    return False, (jsonify({
+        'error': 'Admin access is required to change a report status.'
+    }), 403)
 
 
 def haversine_meters(lat1, lon1, lat2, lon2):
@@ -850,27 +937,28 @@ def sms_test():
     return jsonify({'status': 'sent'})
 
 
-@app.route('/admin/me', methods=['GET'])
-def admin_me():
+@app.route('/admin_check', methods=['GET'])
+def admin_check():
     """
-    Report whether the signed-in address is an admin.
+    Confirm whether the supplied X-Admin-Key is the admin passcode.
 
-    The dashboard calls this to decide if it shows the status dropdowns. The
-    same trust caveat as current_admin_email() applies: this is a convenience
-    signal, not authentication.
+    The dashboard calls this to decide whether to show the status dropdowns.
+    Only a boolean is ever returned: neither ADMIN_KEY nor the address list
+    leaves the server.
     """
-    email = current_admin_email()
-    return jsonify({'email': email, 'is_admin': email is not None})
+    ok, failure = admin_gate()
+    if not ok:
+        return failure
+    return jsonify({'is_admin': True})
 
 
 @app.route('/report/<report_id>/status', methods=['PATCH'])
 def report_status_update(report_id):
     """Move a report between reported -> in_progress -> fixed. Admin only."""
-    if not current_admin_email():
-        # Deliberately identical for "no email" and "not an admin".
-        return jsonify({
-            'error': 'Admin access is required to change a report status.'
-        }), 403
+    ok, failure = admin_gate()
+    if not ok:
+        # Deliberately identical for "no key" and "wrong key".
+        return failure
 
     data = request.get_json(silent=True) or {}
     new_status = request_status_value(data)

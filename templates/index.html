@@ -23,6 +23,9 @@
             --navy: #0f172a;
             --navy-light: #1e293b;
             --navy-blur: rgba(15, 23, 42, 0.78);
+            /* Accent for fills that carry white text: dark enough to keep a
+               5:1 contrast ratio with a white label in both themes. */
+            --accent-strong: #0e7490;
             --radius: 12px;
             --transition: all 0.2s ease;
             --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.07);
@@ -43,6 +46,7 @@
             --navy: #f8fafc;
             --navy-light: #f1f5f9;
             --navy-blur: rgba(15, 23, 42, 0.78);
+            --accent-strong: #0e7490;
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
             --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
         }
@@ -206,6 +210,15 @@
             box-shadow: 0 1px 3px rgba(6, 182, 212, 0.25);
         }
 
+        /*
+         * Secondary buttons. Hover/active/focus all share one accent-filled
+         * treatment, and the accent is dark enough that the white label keeps
+         * a readable contrast ratio in both themes.
+         *
+         * The previous rule used --navy-light, which flips between themes
+         * (#1e293b light / #f1f5f9 dark) while the label colour tracks
+         * --text, so the two swapped together and the label vanished.
+         */
         .btn-secondary {
             background: var(--card);
             color: var(--text);
@@ -213,7 +226,37 @@
         }
 
         .btn-secondary:hover {
-            background: var(--navy-light);
+            background: var(--accent-strong);
+            color: #ffffff;
+            border-color: var(--accent-strong);
+        }
+
+        .btn-secondary:active {
+            background: var(--accent-strong);
+            color: #ffffff;
+            border-color: var(--accent-strong);
+            transform: translateY(1px);
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.18);
+        }
+
+        .btn-secondary:focus-visible {
+            background: var(--accent-strong);
+            color: #ffffff;
+            border-color: var(--accent-strong);
+            outline: 2px solid var(--accent-strong);
+            outline-offset: 2px;
+        }
+
+        /* Disabled keeps the muted outline look, never the accent fill. */
+        .btn-secondary:disabled,
+        .btn-secondary:disabled:hover,
+        .btn-secondary:disabled:active {
+            background: var(--surface-2, #f1f5f9);
+            color: var(--muted);
+            border-color: var(--border);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         /* Nav Tabs (view switching) */
@@ -1530,27 +1573,27 @@
                 <h3 class="panel-title">Admin access</h3>
             </div>
             <div class="panel-content">
-                <p class="settings-desc">Only addresses listed in the server's ADMIN_EMAILS setting can change report status.</p>
+                <p class="settings-desc">Enter the admin passcode to change report status. Without it the dashboard is read-only.</p>
                 <div class="settings-row" style="margin-bottom: 0.75rem;">
                     <div class="settings-row-text">
-                        <span class="settings-row-label">Signed in as</span>
-                        <span class="settings-row-desc" id="adminEmailLabel">Not signed in</span>
+                        <span class="settings-row-label">Role</span>
+                        <span class="settings-row-desc" id="adminRoleLabel">Viewer</span>
                     </div>
                     <span class="status-pill reported" id="adminRoleBadge">Viewer</span>
                 </div>
                 <div class="settings-row">
                     <div class="settings-row-text">
-                        <label class="settings-row-label" for="adminEmailInput">Email address</label>
-                        <span class="settings-row-desc">Used only to unlock the status dropdowns on the dashboard.</span>
+                        <label class="settings-row-label" for="adminKeyInput">Admin passcode</label>
+                        <span class="settings-row-desc">Set on the server as ADMIN_KEY. Kept in this tab only, never in this browser's history.</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
-                    <input type="email" id="adminEmailInput" placeholder="you@example.com"
-                           maxlength="160" autocomplete="email"
+                    <input type="password" id="adminKeyInput" placeholder="Admin passcode"
+                           maxlength="200" autocomplete="off"
                            style="flex: 1 1 220px; min-width: 180px; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--text); font-family: inherit; font-size: 0.875rem;">
-                    <button type="button" class="btn btn-secondary" id="saveAdminEmailBtn">Save email</button>
+                    <button type="button" class="btn btn-secondary" id="saveAdminKeyBtn">Save passcode</button>
                 </div>
-                <p class="settings-note">Saved in this browser only. The server re-checks it on every request.</p>
+                <p class="settings-note">Stored in this tab's session only: closing the tab signs you out, and the key is never persisted to disk.</p>
             </div>
         </div>
 
@@ -1692,10 +1735,10 @@
             fixed: 'Fixed'
         };
 
-        // Signed-in identity, from GET /admin/me, which compares the
-        // X-User-Email header this page sends against ADMIN_EMAILS.
-        let adminState = { email: '', is_admin: false };
-        const ADMIN_EMAIL_KEY = 'pothole_admin_email';
+        // Signed-in identity, from GET /admin_check, which compares the
+        // X-Admin-Key header this page sends against the server's ADMIN_KEY.
+        let adminState = { key: '', is_admin: false };
+        const ADMIN_KEY_STORE = 'pothole_admin_key';
 
         // List + map filters. Changing a filter only flips card visibility and
         // the marker set, so nothing is rebuilt and no image is reloaded.
@@ -1717,9 +1760,9 @@
         const filterSource = document.getElementById('filterSource');
         const filterSearch = document.getElementById('filterSearch');
         const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-        const adminEmailInput = document.getElementById('adminEmailInput');
-        const saveAdminEmailBtn = document.getElementById('saveAdminEmailBtn');
-        const adminEmailLabel = document.getElementById('adminEmailLabel');
+        const adminKeyInput = document.getElementById('adminKeyInput');
+        const saveAdminKeyBtn = document.getElementById('saveAdminKeyBtn');
+        const adminRoleLabel = document.getElementById('adminRoleLabel');
         const adminRoleBadge = document.getElementById('adminRoleBadge');
 
         // Severity colors
@@ -2403,74 +2446,143 @@
 
         // --- admin identity ---------------------------------------------------
         //
-        // The email lives in this browser only; the server compares it against
-        // ADMIN_EMAILS on every request. This is a convenience signal, not
-        // authentication - see the note in app.py's current_admin_email().
+        // Access is granted by a passcode (the server's ADMIN_KEY), not by an
+        // email address: an email is not a secret, so anyone could type the
+        // admin's address and be treated as that admin. The passcode is held
+        // in sessionStorage only, so closing the tab signs the user out, and
+        // it is never written to localStorage or sent anywhere but the two
+        // admin endpoints. The server never sends ADMIN_KEY back.
+
+        // Set when the server answers the rate limit, so the toast can say so.
+        let adminRateLimited = false;
 
         function apiHeaders() {
+            return { 'Accept': 'application/json' };
+        }
+
+        // Only the admin endpoints get the passcode.
+        function adminHeaders() {
             const headers = { 'Accept': 'application/json' };
-            if (adminState.email) headers['X-User-Email'] = adminState.email;
+            const key = readAdminKey();
+            if (key) headers['X-Admin-Key'] = key;
             return headers;
         }
 
-        function loadAdminIdentity() {
-            let email = '';
+        function readAdminKey() {
             try {
-                email = localStorage.getItem(ADMIN_EMAIL_KEY) || '';
+                return sessionStorage.getItem(ADMIN_KEY_STORE) || '';
             } catch (e) {
-                email = '';
+                return '';
             }
-            adminState = { email: email, is_admin: false };
-            syncAdminUI();
-            renderDetections();
-            updateMap();
+        }
 
-            return fetch('/admin/me', { headers: apiHeaders() })
-                .then(response => response.ok ? response.json() : null)
+        function writeAdminKey(key) {
+            try {
+                if (key) sessionStorage.setItem(ADMIN_KEY_STORE, key);
+                else sessionStorage.removeItem(ADMIN_KEY_STORE);
+            } catch (e) {
+                // Storage blocked: the passcode then only lives for this page.
+            }
+        }
+
+        // Asks the server whether the stored passcode is the admin key. The
+        // dropdowns are only shown once this comes back true.
+        function verifyAdminKey() {
+            if (!readAdminKey()) {
+                adminState = { key: '', is_admin: false };
+                syncAdminUI();
+                renderDetections();
+                updateMap();
+                return Promise.resolve(false);
+            }
+
+            return fetch('/admin_check', { headers: adminHeaders() })
+                .then(response => {
+                    if (response.status === 429) {
+                        // The server refused before looking at the key.
+                        adminRateLimited = true;
+                        return response.json().then(() => null);
+                    }
+                    adminRateLimited = false;
+                    return response.ok ? response.json() : null;
+                })
                 .then(data => {
+                    const ok = !!(data && data.is_admin);
                     adminState = {
-                        email: data && data.email ? data.email : '',
-                        is_admin: !!(data && data.is_admin)
+                        key: ok ? readAdminKey() : '',
+                        is_admin: ok
                     };
+                    if (!ok) writeAdminKey('');
                     syncAdminUI();
                     renderDetections();
                     updateMap();
+                    return ok;
                 })
-                .catch(() => { /* offline: stay a viewer */ });
+                .catch(() => false);
+        }
+
+        // Re-check the role on every page load (and whenever the tab is shown
+        // again), and whenever the stored passcode changes.
+        function loadAdminState() {
+            // A stored passcode that no longer works must not skip the check.
+            adminState = { key: '', is_admin: false };
+            syncAdminUI();
+            renderDetections();
+            updateMap();
+            verifyAdminKey();
         }
 
         function syncAdminUI() {
-            if (adminEmailInput) adminEmailInput.value = adminState.email || '';
-            if (adminEmailLabel) {
-                adminEmailLabel.textContent = adminState.email
-                    ? adminState.email : 'Not signed in';
+            // Never rewrite what the user typed: the old flow cleared the
+            // input before the server answered.
+            if (adminKeyInput && document.activeElement !== adminKeyInput) {
+                adminKeyInput.value = adminState.key || '';
             }
+            const role = adminState.is_admin ? 'Admin' : 'Viewer';
+            if (adminRoleLabel) setText(adminRoleLabel, role);
             if (adminRoleBadge) {
                 setClass(adminRoleBadge, 'status-pill ' +
                     (adminState.is_admin ? 'in_progress' : 'reported'));
-                setText(adminRoleBadge, adminState.is_admin ? 'Admin' : 'Viewer');
+                setText(adminRoleBadge, role);
             }
+            if (saveAdminKeyBtn) saveAdminKeyBtn.disabled = false;
         }
 
-        function saveAdminEmail() {
-            const email = (adminEmailInput.value || '').trim().toLowerCase();
-            try {
-                if (email) localStorage.setItem(ADMIN_EMAIL_KEY, email);
-                else localStorage.removeItem(ADMIN_EMAIL_KEY);
-            } catch (e) { }
+        function saveAdminKey() {
+            const key = (adminKeyInput.value || '').trim();
 
-            adminState = { email: email, is_admin: false };
-            syncAdminUI();
+            // Show the outcome straight away instead of leaving the stale
+            // "Viewer" pill on screen while the request is in flight.
+            if (adminRoleLabel) setText(adminRoleLabel, 'Checking...');
+            if (adminRoleBadge) {
+                setClass(adminRoleBadge, 'status-pill reported');
+                setText(adminRoleBadge, 'Checking...');
+            }
+            if (saveAdminKeyBtn) saveAdminKeyBtn.disabled = true;
 
-            // Re-ask the server so the dropdowns appear or disappear at once.
-            loadAdminIdentity().then(function () {
-                if (adminState.email && !adminState.is_admin) {
-                    showSettingsToast('Not an admin',
-                        'That address is not in ADMIN_EMAILS, so status changes stay read-only.',
-                        'error');
-                } else if (adminState.is_admin) {
+            if (!key) {
+                writeAdminKey('');
+                adminState = { key: '', is_admin: false };
+                syncAdminUI();
+                renderDetections();
+                updateMap();
+                showSettingsToast('Signed out', 'Admin access removed for this tab.', 'success');
+                return;
+            }
+
+            writeAdminKey(key);
+            adminState = { key: key, is_admin: false };
+
+            verifyAdminKey().then(function (ok) {
+                if (ok) {
                     showSettingsToast('Admin access granted',
                         'You can now change report statuses from the dashboard.', 'success');
+                } else if (adminRateLimited) {
+                    showSettingsToast('Too many attempts',
+                        'Too many failed admin attempts. Try again in 10 minutes.', 'error');
+                } else {
+                    showSettingsToast('Wrong passcode',
+                        'That passcode did not match. The dropdowns stay hidden.', 'error');
                 }
             });
         }
@@ -2486,7 +2598,7 @@
                 const response = await fetch(
                     '/report/' + encodeURIComponent(String(detection.id)) + '/status', {
                     method: 'PATCH',
-                    headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, adminHeaders()),
                     body: JSON.stringify({ status: next })
                 });
 
@@ -2870,7 +2982,7 @@
         filterSource.addEventListener('change', applyFilters);
         filterSearch.addEventListener('input', applyFilters);
         clearFiltersBtn.addEventListener('click', resetFilters);
-        saveAdminEmailBtn.addEventListener('click', saveAdminEmail);
+        saveAdminKeyBtn.addEventListener('click', saveAdminKey);
 
         // Report Modal
         const reportBtn = document.getElementById('reportBtn');
@@ -3516,7 +3628,7 @@
         applyTheme(document.documentElement.getAttribute('data-theme-preference') || 'system', false);
         loadPotholeSettings();
         readFilters();
-        loadAdminIdentity();
+        loadAdminState();
         renderView();
         initMap();
         fetchDetections();
