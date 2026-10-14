@@ -1362,6 +1362,477 @@
             justify-content: center;
             box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
         }
+
+        /* ============================================================
+           Hero banner (below the navbar, above the views)
+           ============================================================ */
+        .hero-banner {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+            /* Slim: one line of title + one line of subtitle. */
+            padding: 1.125rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            /* Navy -> teal, animated by shifting the oversized gradient. */
+            background-image: linear-gradient(115deg,
+                    #0b1220 0%,
+                    #123047 45%,
+                    #0e7490 100%);
+            background-size: 220% 220%;
+            background-position: 0% 50%;
+            animation: heroGradientShift 16s ease-in-out infinite alternate;
+        }
+
+        @keyframes heroGradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 100% 50%;
+            }
+        }
+
+        /* Soft teal glow so the gradient does not read as a flat block. */
+        .hero-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background: radial-gradient(120% 160% at 88% -30%,
+                    rgba(45, 212, 191, 0.30) 0%,
+                    rgba(45, 212, 191, 0) 60%);
+        }
+
+        .hero-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-text {
+            min-width: 0;
+            flex: 1 1 320px;
+        }
+
+        .hero-title {
+            font-size: 28px;
+            line-height: 1.15;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: #f8fafc;
+            margin: 0;
+        }
+
+        .hero-subtitle {
+            font-size: 13px;
+            line-height: 1.4;
+            font-weight: 400;
+            color: rgba(226, 232, 240, 0.78);
+            margin: 0.125rem 0 0;
+        }
+
+        /* Clock + "last updated" live on the right, in small soft pills. */
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.3125rem 0.6875rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.08);
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(241, 245, 249, 0.92);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .hero-pill svg {
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+            opacity: 0.85;
+        }
+
+        /* The live clock carries the tabular clock digits. */
+        #heroClock {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        #heroUpdated {
+            color: rgba(226, 232, 240, 0.82);
+        }
+
+        @media (max-width: 768px) {
+            .hero-banner {
+                padding: 0.875rem 1rem;
+            }
+
+            .hero-inner {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .hero-title {
+                font-size: 22px;
+            }
+
+            .hero-meta {
+                width: 100%;
+            }
+        }
+
+        /* Respect the OS "reduce motion" setting: keep the gradient, stop the drift. */
+        @media (prefers-reduced-motion: reduce) {
+            .hero-banner {
+                animation: none;
+                background-position: 30% 50%;
+            }
+        }
+
+        /* ============================================================
+           1. Scroll-in reveal (sections fade + rise once)
+           JS adds .is-visible via IntersectionObserver and then stops
+           observing, so each section animates exactly one time.
+           ============================================================ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(14px);
+            transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, transform;
+        }
+
+        .reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+            will-change: auto;
+        }
+
+        /* Stagger the stat cards so the row reads as one motion. */
+        .reveal[data-reveal-delay="1"] {
+            transition-delay: 0.06s;
+        }
+
+        .reveal[data-reveal-delay="2"] {
+            transition-delay: 0.12s;
+        }
+
+        .reveal[data-reveal-delay="3"] {
+            transition-delay: 0.18s;
+        }
+
+        .reveal[data-reveal-delay="4"] {
+            transition-delay: 0.24s;
+        }
+
+        /* ============================================================
+           3. 404-style empty state with an inline road illustration
+           ============================================================ */
+        .empty-state {
+            padding: 2.5rem 1.5rem 2.75rem;
+        }
+
+        /* The road drawing replaces the old line-art icon. */
+        .empty-road {
+            width: 180px;
+            max-width: 70%;
+            height: auto;
+            margin-bottom: 1.25rem;
+            display: block;
+        }
+
+        /* The dashes drift toward the viewer. */
+        .empty-road .road-dashes {
+            animation: roadDash 1.4s linear infinite;
+        }
+
+        @keyframes roadDash {
+            0% {
+                transform: translateY(0);
+                opacity: 0.25;
+            }
+
+            50% {
+                opacity: 0.9;
+            }
+
+            100% {
+                transform: translateY(9px);
+                opacity: 0.25;
+            }
+        }
+
+        /* A small "404" chip, in the spirit of a not-found page. */
+        .empty-code {
+            display: inline-block;
+            padding: 0.1875rem 0.625rem;
+            margin-bottom: 0.75rem;
+            border-radius: 9999px;
+            border: 1px dashed var(--border);
+            background: var(--background);
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .empty-title {
+            font-size: 1.0625rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.375rem;
+        }
+
+        .empty-state p {
+            font-size: 0.875rem;
+            line-height: 1.5;
+            max-width: 34ch;
+        }
+
+        .empty-state .btn {
+            margin-top: 1.125rem;
+        }
+
+        /* ============================================================
+           4. Button hover + press feedback
+           A shared lift/scale model so every variant feels the same.
+           ============================================================ */
+        .btn {
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.15s ease, box-shadow 0.15s ease,
+                background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        /* Pressed: settle back down and tighten the shadow. */
+        .btn:active:not(:disabled) {
+            transform: translateY(1px) scale(0.985);
+            transition-duration: 0.06s;
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid var(--accent-teal);
+            outline-offset: 2px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 6px 18px -4px rgba(6, 182, 212, 0.55);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            box-shadow: 0 1px 3px rgba(6, 182, 212, 0.25);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary:active:not(:disabled) {
+            transform: translateY(1px) scale(0.985);
+        }
+
+        /* Ghost buttons lift only a little, so they do not feel jumpy. */
+        .btn-ghost:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost:active:not(:disabled) {
+            transform: translateY(1px) scale(0.985);
+        }
+
+        /* Nav tabs: same lift, tighter travel. */
+        .nav-tab:active {
+            transform: scale(0.97);
+        }
+
+        /* Theme options and other .btn-like surfaces. */
+        .theme-option:active {
+            transform: scale(0.98);
+        }
+
+        /* ============================================================
+           6. Thin custom scrollbar
+           ============================================================ */
+        :root {
+            /* Fallback for the Firefox syntax, which takes no gradients. */
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        /* The detections list scrolls, so give it the same rail. */
+        .detections-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        /* ============================================================
+           5. Sticky bottom tab bar (mobile only)
+           Dashboard / Report / Settings. Purely additive: it uses its own
+           ids and never touches the existing nav-tabs or JS.
+           ============================================================ */
+        .mobile-tabbar {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-tabbar {
+                display: block;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 1200;
+                padding: 0.375rem 0.5rem calc(0.375rem + env(safe-area-inset-bottom));
+                background: var(--navy-blur);
+                border-top: 1px solid var(--header-border);
+                -webkit-backdrop-filter: blur(14px) saturate(180%);
+                backdrop-filter: blur(14px) saturate(180%);
+                box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.06);
+            }
+
+            /* Keep the last card and the toast clear of the bar. */
+            body {
+                padding-bottom: 64px;
+            }
+
+            .toast-container {
+                bottom: 76px;
+            }
+
+            .mobile-tabbar-inner {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.25rem;
+                max-width: 480px;
+                margin: 0 auto;
+            }
+
+            .mobile-tab {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.1875rem;
+                padding: 0.375rem 0.25rem;
+                border: none;
+                border-radius: 10px;
+                background: transparent;
+                color: var(--header-tab-text);
+                font-family: inherit;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+                transition: color 0.15s ease, background-color 0.15s ease;
+            }
+
+            .mobile-tab svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .mobile-tab:active {
+                transform: scale(0.96);
+            }
+
+            .mobile-tab.active {
+                background: var(--header-tab-active-bg);
+                color: var(--accent-teal);
+            }
+
+            /* The centre "Report" tab reads as the primary action. */
+            .mobile-tab--report {
+                color: var(--header-tab-text);
+            }
+
+            .mobile-tab--report svg {
+                width: 22px;
+                height: 22px;
+            }
+        }
+
+        /* Respect the OS "reduce motion" setting across everything above. */
+        @media (prefers-reduced-motion: reduce) {
+
+            .reveal,
+            .reveal.is-visible {
+                transition: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+
+            .empty-road .road-dashes {
+                animation: none;
+            }
+
+            .btn:hover:not(:disabled),
+            .btn:active:not(:disabled),
+            .btn-secondary:hover:not(:disabled),
+            .btn-secondary:active:not(:disabled),
+            .btn-ghost:hover:not(:disabled),
+            .btn-ghost:active:not(:disabled),
+            .nav-tab:active,
+            .theme-option:active,
+            .mobile-tab:active {
+                transform: none;
+            }
+
+            .mobile-tab {
+                transition: none;
+            }
+
+            * {
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
     <script>
         // Apply the saved theme before first paint to avoid a flash of the wrong theme.
@@ -1417,9 +1888,36 @@
         </div>
     </header>
 
+    <!--
+      Hero banner: branding, a live clock, and a "last updated" counter.
+      The two elements it ticks (#heroClock, #heroUpdated) are written by a
+      self-contained script that touches nothing else, so adding this does not
+      affect the dashboard's keyed-diff rendering.
+    -->
+    <div class="hero-banner" id="heroBanner">
+        <div class="hero-inner">
+            <div class="hero-text">
+                <h1 class="hero-title">Smart Pothole Detection</h1>
+                <p class="hero-subtitle">Live road damage reports for safer roads</p>
+            </div>
+            <div class="hero-meta">
+                <span class="hero-pill" aria-label="Current local time">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                         stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 7v5l3 2"></path>
+                    </svg>
+                    <span id="heroClock">--:--:--</span>
+                </span>
+                <span class="hero-pill" id="heroUpdated" aria-live="polite">Last updated just now</span>
+            </div>
+        </div>
+    </div>
+
     <main id="dashboardView">
         <div class="stats-grid">
-            <div class="stat-card">
+            <div class="stat-card reveal" data-reveal-delay="1">
                 <div class="stat-header">
                     <span class="stat-title">Total Detections</span>
                     <div class="stat-icon">
@@ -1431,7 +1929,7 @@
                 <div class="stat-value" id="totalDetections">0</div>
                 <div class="stat-sublabel">All-time reports</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card reveal" data-reveal-delay="2">
                 <div class="stat-header">
                     <span class="stat-title">High Severity</span>
                     <div class="stat-icon">
@@ -1443,7 +1941,7 @@
                 <div class="stat-value" id="highSeverity">0</div>
                 <div class="stat-sublabel">Immediate attention needed</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card reveal" data-reveal-delay="3">
                 <div class="stat-header">
                     <span class="stat-title">Last Detection</span>
                     <div class="stat-icon">
@@ -1455,7 +1953,7 @@
                 <div class="stat-value stat-value--relative" id="lastDetection">—</div>
                 <div class="stat-sublabel" id="lastDetectionTime">No reports yet</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card reveal" data-reveal-delay="4">
                 <div class="stat-header">
                     <span class="stat-title">Fixed</span>
                     <div class="stat-icon">
@@ -1471,7 +1969,7 @@
 
         <div class="dashboard-grid">
             <!-- Left Panel: Detections List -->
-            <div class="panel">
+            <div class="panel reveal">
                 <div class="panel-header">
                     <h2 class="panel-title">Recent Detections</h2>
                     <span id="detectionCount" style="font-size: 0.75rem; color: var(--muted);">0 reports</span>
@@ -1513,18 +2011,70 @@
                         <button type="button" class="btn btn-ghost" id="clearFiltersBtn">Clear</button>
                     </div>
                     <div class="detections-list" id="detectionsList">
+                        <!--
+                          Custom 404-style empty state: an inline SVG road that
+                          fades into the distance, so "no reports yet" reads as
+                          a deliberate screen rather than a broken one.
+                        -->
                         <div class="empty-state" id="emptyState">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg class="empty-road" viewBox="0 0 180 120" role="img"
+                                 aria-label="An empty road illustration">
+                                <defs>
+                                    <linearGradient id="emptySky" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="var(--border)" stop-opacity="0.9"/>
+                                        <stop offset="100%" stop-color="var(--border)" stop-opacity="0.15"/>
+                                    </linearGradient>
+                                    <linearGradient id="emptyRoad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="var(--muted)" stop-opacity="0.28"/>
+                                        <stop offset="100%" stop-color="var(--muted)" stop-opacity="0.08"/>
+                                    </linearGradient>
+                                </defs>
+
+                                <!-- horizon + sky wash -->
+                                <rect x="0" y="0" width="180" height="120" rx="10"
+                                      fill="var(--background)"/>
+                                <rect x="0" y="46" width="180" height="1" fill="var(--border)"/>
+
+                                <!-- the road, narrowing toward the horizon -->
+                                <path d="M70 120 L104 120 L150 48 L120 48 Z" fill="url(#emptyRoad)"/>
+                                <!-- verge lines -->
+                                <path d="M70 120 L118 48" stroke="var(--border)"
+                                      stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                                <path d="M104 120 L152 48" stroke="var(--border)"
+                                      stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+                                <!-- centre dashes, animated -->
+                                <g class="road-dashes" fill="var(--muted)">
+                                    <rect x="85" y="112" width="5" height="10" rx="2.5" opacity="0.55"/>
+                                    <rect x="87" y="96" width="4" height="8" rx="2" opacity="0.45"/>
+                                    <rect x="88.5" y="82" width="3" height="6" rx="1.5" opacity="0.35"/>
+                                    <rect x="89.7" y="70" width="2" height="4" rx="1" opacity="0.3"/>
+                                    <rect x="90.5" y="61" width="1.5" height="3" rx="0.75" opacity="0.25"/>
+                                </g>
+
+                                <!-- a lone marker post, suggesting "nothing here" -->
+                                <g stroke="var(--muted)" stroke-width="1.5"
+                                   stroke-linecap="round" opacity="0.5">
+                                    <path d="M40 74 v-14"/>
+                                    <path d="M34 62 h12"/>
+                                </g>
+                                <circle cx="40" cy="58" r="2" fill="var(--muted)" opacity="0.45"/>
                             </svg>
-                            <p>No pothole detections yet</p>
+
+                            <span class="empty-code">404 &middot; no reports</span>
+                            <div class="empty-title">Nothing on record yet</div>
+                            <p>Once a pothole is reported it shows up here with its
+                               severity, location and status.</p>
+                            <button type="button" class="btn btn-primary" id="emptyReportBtn">
+                                Report a pothole
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Panel: Map -->
-            <div class="panel">
+            <div class="panel reveal" data-reveal-delay="1">
                 <div class="panel-header">
                     <h2 class="panel-title">Live Map View</h2>
                     <span style="font-size: 0.75rem; color: var(--muted);">Ludhiana, Punjab</span>
@@ -1538,12 +2088,12 @@
 
     <!-- Settings View -->
     <section class="settings-view" id="settingsView" hidden>
-        <div class="settings-header">
+        <div class="settings-header reveal">
             <h2 class="settings-title">Settings</h2>
             <p class="settings-subtitle">Manage your dashboard preferences.</p>
         </div>
 
-        <div class="panel settings-card">
+        <div class="panel settings-card reveal" data-reveal-delay="1">
             <div class="panel-header">
                 <h3 class="panel-title">Appearance</h3>
             </div>
@@ -1574,7 +2124,7 @@
             </div>
         </div>
 
-        <div class="panel settings-card">
+        <div class="panel settings-card reveal" data-reveal-delay="2">
             <div class="panel-header">
                 <h3 class="panel-title">Admin access</h3>
             </div>
@@ -1605,7 +2155,7 @@
             </div>
         </div>
 
-        <div class="panel settings-card">
+        <div class="panel settings-card reveal" data-reveal-delay="3">
             <div class="panel-header">
                 <h3 class="panel-title">Notifications</h3>
             </div>
@@ -1638,6 +2188,41 @@
             </div>
         </div>
     </section>
+
+    <!--
+      Sticky bottom tab bar, mobile only (hidden by CSS above 768px).
+      Dashboard / Report / Settings. It uses its own ids and reuses the
+      existing hash-based view routing rather than adding a second nav model.
+    -->
+    <nav class="mobile-tabbar" id="mobileTabbar" aria-label="Primary">
+        <div class="mobile-tabbar-inner">
+            <button type="button" class="mobile-tab" id="mobileTabDashboard" data-view="dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10"/>
+                </svg>
+                Dashboard
+            </button>
+            <button type="button" class="mobile-tab mobile-tab--report" id="mobileTabReport">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Report
+            </button>
+            <button type="button" class="mobile-tab" id="mobileTabSettings" data-view="settings">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+                Settings
+            </button>
+        </div>
+    </nav>
 
     <div class="toast-container" id="toastContainer"></div>
 
@@ -2340,10 +2925,47 @@
             const fixed = detections.length - total;
             const last = open.length > 0 ? timeLabel(orderedDetections(open)[0]) : '—';
 
-            totalDetectionsEl.textContent = total;
-            highSeverityEl.textContent = high;
-            fixedCountEl.textContent = fixed;
+            // Count up on the first real values only; every poll after that
+            // writes the number straight out, so the digits never re-animate.
+            countUpStat(totalDetectionsEl, total);
+            countUpStat(highSeverityEl, high);
+            countUpStat(fixedCountEl, fixed);
             refreshLastDetection();
+        }
+
+        // --- count-up animation (first load only) ----------------------------
+        const countUpDone = new WeakSet();
+
+        function prefersReducedMotion() {
+            return window.matchMedia &&
+                window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }
+
+        // Animates total/high/fixed once. Skipped entirely when the user asks
+        // for reduced motion, and a no-op for 0 so an empty board stays quiet.
+        function countUpStat(el, value) {
+            if (!el || countUpDone.has(el)) return;
+            if (typeof value !== 'number' || !isFinite(value) || value < 0) return;
+
+            countUpDone.add(el);
+
+            if (prefersReducedMotion() || value === 0) return;
+
+            const duration = 700;
+            const startedAt = performance.now();
+
+            const step = function (now) {
+                const progress = Math.min(1, (now - startedAt) / duration);
+                // easeOutCubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.round(value * eased);
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    el.textContent = value;
+                }
+            };
+            requestAnimationFrame(step);
         }
 
         // The "Last Detection" card: relative age as the headline, exact local
@@ -3692,6 +4314,86 @@
         schedulePoll();
         setInterval(refreshLastDetection, 30000);
 
+        // --- scroll-in reveal -------------------------------------------------
+        // Each .reveal animates the first time it enters the viewport and is
+        // then unobserved, so scrolling back up never replays it.
+        function initRevealOnScroll() {
+            const targets = Array.from(document.querySelectorAll('.reveal'));
+            if (targets.length === 0) return;
+
+            if (prefersReducedMotion() || !('IntersectionObserver' in window)) {
+                // No animation wanted or supported: show everything now.
+                targets.forEach(el => el.classList.add('is-visible'));
+                return;
+            }
+
+            const observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);   // once only
+                });
+            }, {
+                root: null,
+                // Trigger a little before the element reaches the fold.
+                rootMargin: '0px 0px -8% 0px',
+                threshold: 0.05
+            });
+
+            targets.forEach(el => observer.observe(el));
+        }
+        initRevealOnScroll();
+
+        // The settings view is hidden at load, so reveal it on route change:
+        // its cards are still unobserved when the view first appears.
+        window.addEventListener('hashchange', function () {
+            if (currentView() !== 'settings') return;
+            requestAnimationFrame(function () {
+                document.querySelectorAll('#settingsView .reveal:not(.is-visible)')
+                    .forEach(function (el) {
+                        el.classList.add('is-visible');
+                    });
+            });
+        });
+
+        // --- mobile tab bar ---------------------------------------------------
+        (function initMobileTabs() {
+            const dashboardTab = document.getElementById('mobileTabDashboard');
+            const reportTab = document.getElementById('mobileTabReport');
+            const settingsTab = document.getElementById('mobileTabSettings');
+            if (!dashboardTab || !reportTab || !settingsTab) return;
+
+            function syncActiveTab() {
+                const view = currentView();
+                dashboardTab.classList.toggle('active', view === 'dashboard');
+                settingsTab.classList.toggle('active', view === 'settings');
+                reportTab.classList.remove('active');
+            }
+
+            // Route through the existing hash router, exactly like the nav tabs.
+            dashboardTab.addEventListener('click', function () {
+                window.location.hash = '#dashboard';
+            });
+            settingsTab.addEventListener('click', function () {
+                window.location.hash = '#settings';
+            });
+            reportTab.addEventListener('click', function () {
+                openModal(false);
+            });
+
+            window.addEventListener('hashchange', syncActiveTab);
+            syncActiveTab();
+        })();
+
+        // The empty state's call to action opens the same report modal.
+        (function initEmptyStateAction() {
+            const button = document.getElementById('emptyReportBtn');
+            if (!button) return;
+            button.addEventListener('click', function () {
+                openModal(false);
+            });
+        })();
+
         // Auto-refresh: a recursive setTimeout that waits for the in-flight
         // request to settle, so polls never overlap and slow responses do not
         // pile up.
@@ -3715,6 +4417,84 @@
                 if (card.data) updateCardTime(card.refs, card.data);
             });
         }, 30000);
+    </script>
+
+    <!--
+      Hero banner clock + "last updated" counter.
+
+      Deliberately isolated from the app script above: it reads and writes only
+      its own two elements (#heroClock, #heroUpdated), never the detections
+      state, and never calls the app's render functions - so it can never
+      cause a re-render.
+
+      "Last updated" is stamped by watching the detections list for real
+      changes, which keeps it correct wherever the data comes from without
+      having to modify the fetch code.
+    -->
+    <script>
+        (function () {
+            var clockEl = document.getElementById('heroClock');
+            var updatedEl = document.getElementById('heroUpdated');
+            var listEl = document.getElementById('detectionsList');
+            if (!clockEl || !updatedEl) return;
+
+            var lastUpdated = Date.now();
+            var lastStamp = 0;
+
+            // --- live clock ---------------------------------------------------
+            function renderClock() {
+                // Locale order + 12/24h follow the viewer's system settings.
+                clockEl.textContent = new Date().toLocaleTimeString();
+            }
+
+            // --- "Last updated X seconds ago" ---------------------------------
+            function renderUpdated() {
+                var seconds = Math.max(0, Math.round((Date.now() - lastUpdated) / 1000));
+
+                if (seconds < 5) {
+                    updatedEl.textContent = 'Last updated just now';
+                } else if (seconds < 60) {
+                    updatedEl.textContent = 'Last updated ' + seconds + ' seconds ago';
+                } else {
+                    var minutes = Math.floor(seconds / 60);
+                    updatedEl.textContent = 'Last updated ' + minutes +
+                        (minutes === 1 ? ' minute ago' : ' minutes ago');
+                }
+            }
+
+            function tick() {
+                renderClock();
+                renderUpdated();
+            }
+
+            // One cheap interval drives both labels.
+            setInterval(tick, 1000);
+            tick();
+
+            // --- stamp the moment the data actually changes --------------------
+            // Multiple mutations land during one render, so stamp at most once
+            // per second: the label reads in whole seconds anyway.
+            if (listEl && typeof MutationObserver === 'function') {
+                var observer = new MutationObserver(function () {
+                    var now = Date.now();
+                    if (now - lastStamp >= 1000) {
+                        lastStamp = now;
+                        lastUpdated = now;
+                        renderUpdated();
+                    }
+                });
+                observer.observe(listEl, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
+            }
+
+            // Keep reading right after an hour-long tab sleep.
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) tick();
+            });
+        })();
     </script>
 </body>
 </html>
