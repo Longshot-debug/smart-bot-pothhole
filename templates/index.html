@@ -534,6 +534,12 @@
             display: block;
         }
 
+        /* Red ring for the admin passcode input when it is rejected. */
+        input.has-error,
+        .filter-field input.has-error {
+            border-color: var(--danger);
+        }
+
         .settings-actions {
             display: flex;
             justify-content: flex-end;
@@ -1589,10 +1595,12 @@
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
                     <input type="password" id="adminKeyInput" placeholder="Admin passcode"
-                           maxlength="200" autocomplete="off"
+                           maxlength="200" autocomplete="off" aria-describedby="adminKeyError"
                            style="flex: 1 1 220px; min-width: 180px; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--text); font-family: inherit; font-size: 0.875rem;">
                     <button type="button" class="btn btn-secondary" id="saveAdminKeyBtn">Save passcode</button>
                 </div>
+                <!-- The server's own error text, shown inline under the input. -->
+                <p class="field-error" id="adminKeyError" role="alert"></p>
                 <p class="settings-note">Stored in this tab's session only: closing the tab signs you out, and the key is never persisted to disk.</p>
             </div>
         </div>
@@ -1762,6 +1770,7 @@
         const clearFiltersBtn = document.getElementById('clearFiltersBtn');
         const adminKeyInput = document.getElementById('adminKeyInput');
         const saveAdminKeyBtn = document.getElementById('saveAdminKeyBtn');
+        const adminKeyError = document.getElementById('adminKeyError');
         const adminRoleLabel = document.getElementById('adminRoleLabel');
         const adminRoleBadge = document.getElementById('adminRoleBadge');
 
@@ -2453,9 +2462,6 @@
         // it is never written to localStorage or sent anywhere but the two
         // admin endpoints. The server never sends ADMIN_KEY back.
 
-        // Set when the server answers the rate limit, so the toast can say so.
-        let adminRateLimited = false;
-
         function apiHeaders() {
             return { 'Accept': 'application/json' };
         }
@@ -2487,49 +2493,57 @@
 
         // Asks the server whether the stored passcode is the admin key. The
         // dropdowns are only shown once this comes back true.
+        //
+        // Returns a structured outcome instead of a bare boolean, so the caller
+        // can tell "wrong passcode" apart from "rate limited" and "server
+        // unreachable". Nothing in here clears the input.
         function verifyAdminKey() {
             if (!readAdminKey()) {
                 adminState = { key: '', is_admin: false };
                 syncAdminUI();
                 renderDetections();
                 updateMap();
-                return Promise.resolve(false);
+                return Promise.resolve({ outcome: 'none' });
             }
 
             return fetch('/admin_check', { headers: adminHeaders() })
-                .then(response => {
-                    if (response.status === 429) {
-                        // The server refused before looking at the key.
-                        adminRateLimited = true;
-                        return response.json().then(() => null);
-                    }
-                    adminRateLimited = false;
-                    return response.ok ? response.json() : null;
+                .then(function (response) {
+                    // Read the body first: the server always explains itself.
+                    return response.json()
+                        .catch(function () { return {}; })
+                        .then(function (body) {
+                            if (response.status === 429) {
+                                return { outcome: 'rate_limited', message: body.error };
+                            }
+                            if (!response.ok) {
+                                return { outcome: 'rejected', message: body.error };
+                            }
+                            return { outcome: 'ok', is_admin: !!body.is_admin };
+                        });
                 })
-                .then(data => {
-                    const ok = !!(data && data.is_admin);
-                    adminState = {
-                        key: ok ? readAdminKey() : '',
-                        is_admin: ok
-                    };
-                    if (!ok) writeAdminKey('');
-                    syncAdminUI();
-                    renderDetections();
-                    updateMap();
-                    return ok;
-                })
-                .catch(() => false);
-        }
+                .then(function (result) {
+                    const confirmed = result.outcome === 'ok' && result.is_admin === true;
 
-        // Re-check the role on every page load (and whenever the tab is shown
-        // again), and whenever the stored passcode changes.
-        function loadAdminState() {
-            // A stored passcode that no longer works must not skip the check.
-            adminState = { key: '', is_admin: false };
-            syncAdminUI();
-            renderDetections();
-            updateMap();
-            verifyAdminKey();
+                    adminState = {
+                        // Keep the typed passcode so the input is never cleared.
+                        key: readAdminKey(),
+                        is_admin: confirmed
+                    };
+                    if (!confirmed) writeAdminKey('');
+                    syncAdminUI();
+                    result.is_admin = confirmed;
+                    return result;
+                })
+                .catch(function (error) {
+                    // Network failure or an unexpected throw inside the UI
+                    // updates. Surface it instead of pretending the key was
+                    // simply wrong.
+                    return {
+                        outcome: 'error',
+                        message: 'Could not reach the server to check the passcode.',
+                        detail: String(error && error.message || error)
+                    };
+                });
         }
 
         function syncAdminUI() {
@@ -2546,6 +2560,30 @@
                 setText(adminRoleBadge, role);
             }
             if (saveAdminKeyBtn) saveAdminKeyBtn.disabled = false;
+            if (adminState.is_admin) clearAdminKeyError();
+        }
+
+        // Re-check the role on every page load, so a stale passcode in this
+        // tab does not silently keep the dropdowns.
+        function loadAdminState() {
+            adminState = { key: '', is_admin: false };
+            syncAdminUI();
+            renderDetections();
+            updateMap();
+            if (readAdminKey()) verifyAdminKey();
+        }
+
+        // Inline error text under the passcode input, plus a red ring.
+        function showAdminKeyError(message) {
+            setText(adminKeyError, message || 'That passcode was not accepted.');
+            adminKeyError.classList.add('show');
+            if (adminKeyInput) adminKeyInput.classList.add('has-error');
+        }
+
+        function clearAdminKeyError() {
+            adminKeyError.classList.remove('show');
+            setText(adminKeyError, '');
+            if (adminKeyInput) adminKeyInput.classList.remove('has-error');
         }
 
         function saveAdminKey() {
@@ -2553,12 +2591,19 @@
 
             // Show the outcome straight away instead of leaving the stale
             // "Viewer" pill on screen while the request is in flight.
+            clearAdminKeyError();
             if (adminRoleLabel) setText(adminRoleLabel, 'Checking...');
             if (adminRoleBadge) {
                 setClass(adminRoleBadge, 'status-pill reported');
                 setText(adminRoleBadge, 'Checking...');
             }
             if (saveAdminKeyBtn) saveAdminKeyBtn.disabled = true;
+
+            const releaseButton = function () {
+                // Always runs, even if something below throws, so the button
+                // can never get stuck disabled.
+                if (saveAdminKeyBtn) saveAdminKeyBtn.disabled = false;
+            };
 
             if (!key) {
                 writeAdminKey('');
@@ -2573,18 +2618,30 @@
             writeAdminKey(key);
             adminState = { key: key, is_admin: false };
 
-            verifyAdminKey().then(function (ok) {
-                if (ok) {
-                    showSettingsToast('Admin access granted',
-                        'You can now change report statuses from the dashboard.', 'success');
-                } else if (adminRateLimited) {
-                    showSettingsToast('Too many attempts',
-                        'Too many failed admin attempts. Try again in 10 minutes.', 'error');
-                } else {
-                    showSettingsToast('Wrong passcode',
-                        'That passcode did not match. The dropdowns stay hidden.', 'error');
-                }
-            });
+            verifyAdminKey()
+                .then(function (result) {
+                    releaseButton();
+
+                    if (result.outcome === 'ok' && result.is_admin) {
+                        showSettingsToast('Admin access granted',
+                            'You can now change report statuses from the dashboard.', 'success');
+                        return;
+                    }
+
+                    if (result.outcome === 'rate_limited') {
+                        showAdminKeyError(result.message ||
+                            'Too many failed attempts. Try again in 10 minutes.');
+                    } else if (result.outcome === 'error') {
+                        showAdminKeyError(result.message);
+                    } else {
+                        showAdminKeyError(result.message ||
+                            'That passcode did not match. The dropdowns stay hidden.');
+                    }
+                })
+                .catch(function (error) {
+                    releaseButton();
+                    showAdminKeyError('Something went wrong while saving the passcode.');
+                });
         }
 
         // --- status changes ---------------------------------------------------
